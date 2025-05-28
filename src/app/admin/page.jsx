@@ -77,7 +77,7 @@ export default function AdminDashboard() {
           role = 'user',
         } = userSnap.data();
 
-        if (role === 'admin' || locked===true) continue;
+        if (role === 'admin') continue;
         filteredUserCount++;
 
         const bookingSnap = await getDoc(doc(db, 'bookings', uid));
@@ -109,15 +109,17 @@ export default function AdminDashboard() {
             ? category
             : 'medium';
 
-          stats[activeDate] = stats[activeDate] || {
+
+            stats[activeDate] = stats[activeDate] || {
             small: 0,
             medium: 0,
             large: 0,
             total: 0,
-          };
-          stats[activeDate][type]++;
-          stats[activeDate].total++;
-        // }
+            };
+            if (bookings[activeDate] !== false) {
+            stats[activeDate][type]++;
+            stats[activeDate].total++;
+            }
 
         userData.push({
           uid,
