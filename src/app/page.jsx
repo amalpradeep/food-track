@@ -336,10 +336,10 @@ export default function Dashboard() {
                             </div>
                         </div>
                     </div>
+                    <MonthCalendar bookings={bookings} />
+
                 </>
             )}
-
-            <MonthCalendar bookings={bookings} />
 
             {/* Modal */}
             {showModal && (
