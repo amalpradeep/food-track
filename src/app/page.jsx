@@ -10,6 +10,69 @@ import 'react-date-range/dist/styles.css';
 import 'react-date-range/dist/theme/default.css';
 import dayjs from 'dayjs';
 
+
+function MonthCalendar({ bookings }) {
+    const today = dayjs();
+    const year = today.year();
+    const month = today.month();
+    const daysInMonth = today.daysInMonth();
+
+    const firstDayOfWeek = dayjs(new Date(year, month, 1)).day();
+
+    const getDotColor = (dateStr) => {
+        const day = dayjs(dateStr).day(); // Sunday=0, Saturday=6
+        if (bookings[dateStr] === false) return 'red'; // canceled
+        if (day !== 0 && day !== 6) return 'green'; // all weekdays
+        return 'none'; // no dot for weekends
+    };
+
+    const calendarDays = [];
+
+    for (let i = 0; i < firstDayOfWeek; i++) {
+        calendarDays.push(null);
+    }
+
+    for (let d = 1; d <= daysInMonth; d++) {
+        calendarDays.push(dayjs(new Date(year, month, d)).format('YYYY-MM-DD'));
+    }
+
+    return (
+        <div className="max-w-md mx-auto py-5 px-4">
+            <h3 className="text-lg font-semibold mb-3 text-center">
+                Booking Status
+            </h3>
+            <div className="grid grid-cols-7 gap-2 text-center select-none">
+                {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((wd) => (
+                    <div key={wd} className="font-semibold text-sm text-gray-600">
+                        {wd}
+                    </div>
+                ))}
+                {calendarDays.map((dateStr, i) =>
+                    dateStr ? (
+                        <div key={dateStr} className="flex flex-col items-center">
+                            <span className="text-sm">{dayjs(dateStr).date()}</span>
+                            {(() => {
+                                const dotColor = getDotColor(dateStr);
+                                if (dotColor === 'red') {
+                                    return <span className="mt-1 h-2 w-2 rounded-full bg-red-500" />;
+                                } else if (dotColor === 'green') {
+                                    return <span className="mt-1 h-2 w-2 rounded-full bg-green-500" />;
+                                }
+                                return <span className="mt-1 h-2 w-2 invisible" />;
+                            })()}
+                        </div>
+                    ) : (
+                        <div key={`empty-${i}`} />
+                    )
+                )}
+            </div>
+        </div>
+    );
+}
+
+
+
+
 export default function Dashboard() {
     const router = useRouter();
     const [user, setUser] = useState(null);
@@ -164,7 +227,7 @@ export default function Dashboard() {
     return (
         <div className="min-h-screen bg-white text-gray-800">
             {/* Header */}
-            <div className="bg-teal-600 text-white py-3 px-6 flex justify-between items-center shadow">
+            <div className="bg-teal-600 sticky top-0 text-white py-3 px-6 flex justify-between items-center shadow">
                 <h1 className="text-lg font-semibold">Aether Auth</h1>
                 <button
                     onClick={handleLogout}
@@ -199,7 +262,7 @@ export default function Dashboard() {
                             <p className='font-bold'>
                                 <span className="font-semibold text-teal-600">Amount to Pay:</span> ₹{getMonthCount() * 50}
                             </p>
-                          
+
                             {(() => {
                                 const now = dayjs();
                                 const isBefore730 = now.isBefore(now.hour(7).minute(30));
@@ -232,14 +295,13 @@ export default function Dashboard() {
 
                             {/* Action Links */}
                             <div className="flex justify-between text-sm pt-4 border-t border-gray-100 text-teal-700 font-medium">
-                                <button onClick={() => router.push('/history')}>History</button>
                                 <button onClick={() => setShowModal(true)}>Schedule Cancelation</button>
                             </div>
                         </div>
                     </div>
 
                     {/* Cancelled Dates Card */}
-                    <div className="max-w-md mx-auto mt-6 px-4">
+                    <div className="max-w-md mx-auto  px-4">
                         <div className="border border-red-200 rounded-xl p-6 shadow-sm bg-red-50">
                             <h3 className="text-lg font-semibold text-red-600 mb-3">Upcoming Cancellations</h3>
                             <div className="space-y-3">
@@ -269,13 +331,15 @@ export default function Dashboard() {
                                     const cancelDate = new Date(date + 'T07:00:00');
                                     return booked === false && cancelDate > new Date();
                                 }).length === 0 && (
-                                    <p className="text-gray-500">No upcoming cancellations.</p>
-                                )}
+                                        <p className="text-gray-500">No upcoming cancellations.</p>
+                                    )}
                             </div>
                         </div>
                     </div>
                 </>
             )}
+
+            <MonthCalendar bookings={bookings} />
 
             {/* Modal */}
             {showModal && (
@@ -288,7 +352,7 @@ export default function Dashboard() {
                             moveRangeOnFirstSelection={false}
                             ranges={range}
                             minDate={new Date(new Date().setDate(new Date().getDate() + 1))}
-                            />
+                        />
                         <div className="mt-4 flex justify-end gap-3">
                             <button
                                 onClick={() => setShowModal(false)}
