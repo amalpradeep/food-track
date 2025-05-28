@@ -13,6 +13,7 @@ import { doc, setDoc } from 'firebase/firestore';
 const schema = z.object({
   name: z.string().min(2, { message: 'Name is required' }),
   email: z.string().email({ message: 'Invalid email address' }),
+  category: z.enum(['small', 'medium', 'large'], { required_error: 'Please select a food category' }),
   password: z.string().min(6, { message: 'Password must be at least 6 characters' }),
 });
 
@@ -44,7 +45,10 @@ export default function Signup() {
       await setDoc(doc(db, 'users', userCred.user.uid), {
         email: data.email,
         name: data.name,
+        category: data.category,
         role: 'user',
+        locked: true,
+        startDate: null,
       });
       router.push('/');
     } catch (err) {
@@ -101,6 +105,26 @@ export default function Signup() {
             {errors.email && <p className="text-red-600 text-sm mt-1">{errors.email.message}</p>}
           </div>
 
+          {/* Food Category */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Food Category</label>
+            <div className="flex space-x-4">
+              {['small', 'medium', 'large'].map((size) => (
+                <label key={size} className="inline-flex items-center space-x-2">
+                  <input
+                    type="radio"
+                    value={size}
+                    {...register('category')}
+                    className="text-teal-600 focus:ring-teal-500"
+                  />
+                  <span className="capitalize text-gray-700">{size}</span>
+                </label>
+              ))}
+            </div>
+            {errors.category && (
+              <p className="text-red-600 text-sm mt-1">{errors.category.message}</p>
+            )}
+          </div>
           {/* Password */}
           <div>
             <label htmlFor="password" className="block text-sm font-medium text-gray-700">
@@ -122,9 +146,8 @@ export default function Signup() {
           <button
             type="submit"
             disabled={loading}
-            className={`w-full py-2 px-4 text-white rounded-lg transition duration-200 font-semibold ${
-              loading ? 'bg-teal-400 cursor-not-allowed' : 'bg-teal-600 hover:bg-teal-700'
-            }`}
+            className={`w-full py-2 px-4 text-white rounded-lg transition duration-200 font-semibold ${loading ? 'bg-teal-400 cursor-not-allowed' : 'bg-teal-600 hover:bg-teal-700'
+              }`}
           >
             {loading ? 'Creating account...' : 'Sign Up'}
           </button>

@@ -54,11 +54,35 @@ export default function Dashboard() {
         return () => unsubscribe();
     }, []);
 
-    // get total booked days for the current month
-    const getMonthCount = () =>
-        Object.entries(bookings).filter(
-            ([date, booked]) => booked && date.startsWith(today.slice(0, 7))
-        ).length;
+    // Updated getMonthCount: counts booked weekdays from user.startDate in current month excluding false bookings
+    const getMonthCount = () => {
+        if (!user?.startDate) return 0;
+
+        const start = new Date(user.startDate);
+        const todayDate = new Date();
+        const currentMonth = todayDate.getMonth();
+        const currentYear = todayDate.getFullYear();
+
+        let count = 0;
+        const date = new Date(start);
+
+        while (
+            date <= todayDate &&
+            date.getMonth() === currentMonth &&
+            date.getFullYear() === currentYear
+        ) {
+            const ymd = date.toISOString().split('T')[0];
+            const day = date.getDay(); // Sunday=0, Saturday=6
+
+            // Count only weekdays (Mon-Fri) and where booking is NOT false
+            if (day !== 0 && day !== 6 && bookings[ymd] !== false) {
+                count++;
+            }
+            date.setDate(date.getDate() + 1);
+        }
+
+        return count;
+    };
 
     // cancel today's food
     const handleCancel = async (date) => {
@@ -95,7 +119,6 @@ export default function Dashboard() {
         return dates;
     };
 
-
     // confirm date range cancellation
     const handleConfirmRange = async () => {
         const datesToCancel = getDatesInRange(range[0].startDate, range[0].endDate);
@@ -119,7 +142,6 @@ export default function Dashboard() {
         setBookings((prev) => ({ ...prev, ...updates }));
         setShowModal(false);
     };
-
 
     const handleUndoCancel = async (date) => {
         if (!userId) return;
@@ -152,96 +174,108 @@ export default function Dashboard() {
                 </button>
             </div>
 
-            {/* Main */}
-            <div className="max-w-md mx-auto py-10 px-4">
-                <div className="space-y-4 border border-gray-200 rounded-xl p-6 shadow-sm">
-                    <h2 className="text-xl font-medium">Welcome, {user?.name || 'User'}</h2>
-                    <p>
-                        <span className="font-semibold text-teal-600">Booked Days:</span> {getMonthCount()}
-                    </p>
-                    <p>
-                        <span className="font-semibold text-teal-600">Amount to Pay:</span> ₹{getMonthCount() * 50}
-                    </p>
-                    <p>
-                        <span className="font-semibold text-teal-600">Today:</span> {today}
-                    </p>
-                    {(() => {
-                        const now = dayjs();
-                        const isBefore730 = now.isBefore(now.hour(7).minute(30));
-                        const targetDate = isBefore730 ? dayjs().format('YYYY-MM-DD') : dayjs().add(1, 'day').format('YYYY-MM-DD');
-
-                        const isToday = targetDate === today;
-                        const alreadyCanceled = bookings[targetDate] === false;
-
-                        if (alreadyCanceled && isToday) {
-                            return (
-                                <p className="text-red-500 text-sm font-medium">
-                                    Oh' today’s food canceled
-                                </p>
-                            );
-                        }
-
-                        if (!alreadyCanceled) {
-                            return (
-                                <button
-                                    onClick={() => handleCancel(targetDate)}
-                                    className="w-full bg-red-500 text-white py-2 rounded hover:bg-red-600 transition"
-                                >
-                                    Cancel {isToday ? "Today's" : "Tomorrow's"} Food
-                                </button>
-                            );
-                        }
-
-                        return null;
-                    })()}
-
-
-                    {/* Action Links */}
-                    <div className="flex justify-between text-sm pt-4 border-t border-gray-100 text-teal-700 font-medium">
-                        <button onClick={() => router.push('/history')}>History</button>
-                        <button onClick={() => setShowModal(true)}>Schedule Cancelation</button>
+            {user?.locked ? (
+                <div className="max-w-md mx-auto py-10 px-4">
+                    <div className="flex flex-col">
+                        <span>Welcome, {user?.name}</span>
+                        {user?.locked && (
+                            <span className="mt-3 text-sm text-red-600 bg-red-100 px-2 py-1 rounded">
+                                Account locked. Contact admin to approve.
+                            </span>
+                        )}
                     </div>
                 </div>
-            </div>
+            ) : (
+                <>
+                    <div className="max-w-md mx-auto py-10 px-4">
+                        <div className="space-y-4 border border-gray-200 rounded-xl p-6 shadow-sm">
+                            <h2 className="text-xl font-medium">Welcome, {user?.name || 'User'}</h2>
+                            <p>
+                                <span className="font-semibold text-teal-600">My Category:</span> {user?.category}
+                            </p>
+                            <p className='font-bold'>
+                                <span className="font-semibold text-teal-600">Booked Days:</span> {getMonthCount()}
+                            </p>
+                            <p className='font-bold'>
+                                <span className="font-semibold text-teal-600">Amount to Pay:</span> ₹{getMonthCount() * 50}
+                            </p>
+                          
+                            {(() => {
+                                const now = dayjs();
+                                const isBefore730 = now.isBefore(now.hour(7).minute(30));
+                                const targetDate = isBefore730 ? dayjs().format('YYYY-MM-DD') : dayjs().add(1, 'day').format('YYYY-MM-DD');
 
-            {/* Cancelled Dates Card */}
-            <div className="max-w-md mx-auto mt-6 px-4">
-                <div className="border border-red-200 rounded-xl p-6 shadow-sm bg-red-50">
-                    <h3 className="text-lg font-semibold text-red-600 mb-3">Upcoming Cancellations</h3>
-                    <div className="space-y-3">
-                        {Object.entries(bookings)
-                            .filter(([date, booked]) => {
-                                if (booked !== false) return false;
-                                const cancelDate = new Date(date + 'T07:00:00');
-                                return cancelDate > new Date();
-                            })
-                            .sort(([a], [b]) => a.localeCompare(b))
-                            .map(([date]) => (
-                                <div
-                                    key={date}
-                                    className="flex justify-between items-center bg-white border border-red-300 rounded-md p-3 shadow-sm"
-                                >
-                                    <span className="text-red-700 font-medium">{date}</span>
-                                    <button
-                                        onClick={() => handleUndoCancel(date)}
-                                        className="text-sm bg-teal-600 hover:bg-teal-700 text-white px-3 py-1 rounded"
-                                    >
-                                        Undo Cancel
-                                    </button>
-                                </div>
-                            ))}
+                                const isToday = targetDate === today;
+                                const alreadyCanceled = bookings[targetDate] === false;
 
-                        {Object.entries(bookings).filter(([date, booked]) => {
-                            const cancelDate = new Date(date + 'T07:00:00');
-                            return booked === false && cancelDate > new Date();
-                        }).length === 0 && (
-                                <p className="text-gray-500">No upcoming cancellations.</p>
-                            )}
+                                if (alreadyCanceled && isToday) {
+                                    return (
+                                        <p className="text-red-500 text-sm font-medium">
+                                            Oh' today’s food canceled
+                                        </p>
+                                    );
+                                }
+
+                                if (!alreadyCanceled) {
+                                    return (
+                                        <button
+                                            onClick={() => handleCancel(targetDate)}
+                                            className="w-full bg-red-500 text-white py-2 rounded hover:bg-red-600 transition"
+                                        >
+                                            Cancel {isToday ? "Today's" : "Tomorrow's"} Food
+                                        </button>
+                                    );
+                                }
+
+                                return null;
+                            })()}
+
+                            {/* Action Links */}
+                            <div className="flex justify-between text-sm pt-4 border-t border-gray-100 text-teal-700 font-medium">
+                                <button onClick={() => router.push('/history')}>History</button>
+                                <button onClick={() => setShowModal(true)}>Schedule Cancelation</button>
+                            </div>
+                        </div>
                     </div>
-                </div>
-            </div>
 
+                    {/* Cancelled Dates Card */}
+                    <div className="max-w-md mx-auto mt-6 px-4">
+                        <div className="border border-red-200 rounded-xl p-6 shadow-sm bg-red-50">
+                            <h3 className="text-lg font-semibold text-red-600 mb-3">Upcoming Cancellations</h3>
+                            <div className="space-y-3">
+                                {Object.entries(bookings)
+                                    .filter(([date, booked]) => {
+                                        if (booked !== false) return false;
+                                        const cancelDate = new Date(date + 'T07:00:00');
+                                        return cancelDate > new Date();
+                                    })
+                                    .sort(([a], [b]) => a.localeCompare(b))
+                                    .map(([date]) => (
+                                        <div
+                                            key={date}
+                                            className="flex justify-between items-center bg-white border border-red-300 rounded-md p-3 shadow-sm"
+                                        >
+                                            <span className="text-red-700 font-medium">{date}</span>
+                                            <button
+                                                onClick={() => handleUndoCancel(date)}
+                                                className="text-sm bg-teal-600 hover:bg-teal-700 text-white px-3 py-1 rounded"
+                                            >
+                                                Undo Cancel
+                                            </button>
+                                        </div>
+                                    ))}
 
+                                {Object.entries(bookings).filter(([date, booked]) => {
+                                    const cancelDate = new Date(date + 'T07:00:00');
+                                    return booked === false && cancelDate > new Date();
+                                }).length === 0 && (
+                                    <p className="text-gray-500">No upcoming cancellations.</p>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                </>
+            )}
 
             {/* Modal */}
             {showModal && (
@@ -253,8 +287,8 @@ export default function Dashboard() {
                             onChange={(item) => setRange([item.selection])}
                             moveRangeOnFirstSelection={false}
                             ranges={range}
-                            minDate={new Date()}
-                        />
+                            minDate={new Date(new Date().setDate(new Date().getDate() + 1))}
+                            />
                         <div className="mt-4 flex justify-end gap-3">
                             <button
                                 onClick={() => setShowModal(false)}
