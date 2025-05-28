@@ -40,7 +40,7 @@ function getWorkingDays(startDate, month) {
 export default function AdminDashboard() {
   const [month, setMonth] = useState(new Date());
   const [users, setUsers] = useState([]);
-  const [userCount, setUserCount] = useState(0); // 🆕 Count of non-admin users
+  const [userCount, setUserCount] = useState(0);
   const [missingDates, setMissingDates] = useState([]);
   const [totalCount, setTotalCount] = useState(0);
   const [totalAmount, setTotalAmount] = useState(0);
@@ -53,7 +53,7 @@ export default function AdminDashboard() {
   const today = now;
   const activeDate = isBefore(today, cutoffTime)
     ? format(today, 'yyyy-MM-dd')
-    : format(addMonths(today, 0).setDate(today.getDate() + 1), 'yyyy-MM-dd');
+    : format(new Date(today.setDate(today.getDate() + 1)), 'yyyy-MM-dd');
 
   useEffect(() => {
     async function fetchData() {
@@ -64,7 +64,7 @@ export default function AdminDashboard() {
       const missingSet = new Set();
       const stats = {};
       let overallCount = 0;
-      let filteredUserCount = 0; // 🆕
+      let filteredUserCount = 0;
 
       for (const userSnap of userSnaps.docs) {
         const uid = userSnap.id;
@@ -74,11 +74,11 @@ export default function AdminDashboard() {
           locked = false,
           startDate = '',
           category = 'medium',
-          role = 'user', // 🆕 fallback to 'user'
+          role = 'user',
         } = userSnap.data();
 
-        if (role === 'admin') continue; // 🛑 Skip admin
-        filteredUserCount++; // ✅ Count regular user
+        if (role === 'admin' || locked===true) continue;
+        filteredUserCount++;
 
         const bookingSnap = await getDoc(doc(db, 'bookings', uid));
         const bookings = bookingSnap.exists() ? bookingSnap.data() : {};
@@ -100,12 +100,14 @@ export default function AdminDashboard() {
 
         const userMonthCount = workingDays.length - deliveredCount;
 
-        if (
-          workingDays.includes(activeDate) &&
-          !(bookings[activeDate] === false)
-        ) {
-          const type =
-            ['small', 'medium', 'large'].includes(category) ? category : 'medium';
+
+
+        // ✅ FIXED LOGIC: Count all users scheduled for activeDate
+        // if (workingDays.includes(activeDate)) {
+
+          const type = ['small', 'medium', 'large'].includes(category)
+            ? category
+            : 'medium';
 
           stats[activeDate] = stats[activeDate] || {
             small: 0,
@@ -113,10 +115,9 @@ export default function AdminDashboard() {
             large: 0,
             total: 0,
           };
-
           stats[activeDate][type]++;
           stats[activeDate].total++;
-        }
+        // }
 
         userData.push({
           uid,
@@ -132,7 +133,7 @@ export default function AdminDashboard() {
       }
 
       setUsers(userData);
-      setUserCount(filteredUserCount); // ✅ update count state
+      setUserCount(filteredUserCount);
       setTotalCount(overallCount);
       setTotalAmount(overallCount * 50);
       setDailyStats(stats);
@@ -215,7 +216,7 @@ export default function AdminDashboard() {
       </p>
 
       <div className="mb-6">
-        <h3 className="text-lg font-semibold text-teal-700 mb-2">Today’s Count ({activeDate})</h3>
+        <h3 className="text-lg font-semibold text-teal-700 mb-2"> Count for the day ({activeDate})</h3>
         <div className="grid grid-cols-4 gap-4">
           {['small', 'medium', 'large', 'total'].map((cat) => (
             <div key={cat} className="bg-teal-100 p-4 rounded shadow text-center">
