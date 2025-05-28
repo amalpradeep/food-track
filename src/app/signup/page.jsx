@@ -61,7 +61,7 @@ export default function Signup() {
     <div className="relative min-h-screen w-full bg-gradient-to-br from-teal-200 via-teal-100 to-white flex items-center justify-center px-4">
       {/* Brand */}
       <div className="absolute top-6 left-6">
-        <h1 className="text-2xl font-extrabold text-teal-700">Aether Auth</h1>
+        <h1 className="text-2xl font-extrabold text-teal-700">Foodtrack</h1>
       </div>
 
       {/* Signup Form */}

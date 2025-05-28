@@ -9,6 +9,7 @@ import { DateRange } from 'react-date-range';
 import 'react-date-range/dist/styles.css';
 import 'react-date-range/dist/theme/default.css';
 import dayjs from 'dayjs';
+import Header from '@/components/layout/Header';
 
 
 function MonthCalendar({ bookings }) {
@@ -160,11 +161,7 @@ export default function Dashboard() {
         return date;
     };
 
-    // logout
-    const handleLogout = async () => {
-        await signOut(auth);
-        router.push('/login');
-    };
+
 
     // helper to get all dates between start and end
     const getDatesInRange = (startDate, endDate) => {
@@ -222,21 +219,20 @@ export default function Dashboard() {
         });
     };
 
-    if (loading) return <p className="text-center mt-16 text-gray-500">Loading...</p>;
-
+    if (loading) {
+        return (
+          <div className="bg-white flex flex-col items-center justify-center h-screen">
+            <div className="animate-spin rounded-full h-10 w-10 border-4 border-t-transparent border-teal-500 mb-4" />
+            <p className="text-gray-600 text-lg font-medium">Tracking your meals...</p>
+            <p className="text-sm text-gray-400 mt-1">Just a moment while we fetch delicious data.</p>
+          </div>
+        );
+      }
+      
     return (
         <div className="min-h-screen bg-white text-gray-800">
             {/* Header */}
-            <div className="bg-teal-600 sticky top-0 text-white py-3 px-6 flex justify-between items-center shadow">
-                <h1 className="text-lg font-semibold">Aether Auth</h1>
-                <button
-                    onClick={handleLogout}
-                    className="text-sm border border-white px-3 py-1 rounded hover:bg-white hover:text-teal-600 transition"
-                >
-                    Logout
-                </button>
-            </div>
-
+            <Header isAuth />
             {user?.locked ? (
                 <div className="max-w-md mx-auto py-10 px-4">
                     <div className="flex flex-col">
@@ -262,35 +258,35 @@ export default function Dashboard() {
                             <p className='font-bold'>
                                 <span className="font-semibold text-teal-600">Amount to Pay:</span> ₹{getMonthCount() * 50}
                             </p>
-
                             {(() => {
                                 const now = dayjs();
                                 const isBefore730 = now.isBefore(now.hour(7).minute(30));
-                                const targetDate = isBefore730 ? dayjs().format('YYYY-MM-DD') : dayjs().add(1, 'day').format('YYYY-MM-DD');
 
-                                const isToday = targetDate === today;
-                                const alreadyCanceled = bookings[targetDate] === false;
+                                const todayDateStr = dayjs().format('YYYY-MM-DD');
+                                const tomorrowDateStr = dayjs().add(1, 'day').format('YYYY-MM-DD');
 
-                                if (alreadyCanceled && isToday) {
-                                    return (
-                                        <p className="text-red-500 text-sm font-medium">
-                                            Oh' today’s food canceled
-                                        </p>
-                                    );
-                                }
+                                const showCancelButtonFor = isBefore730 ? todayDateStr : tomorrowDateStr;
+                                const isTodayCanceled = bookings[todayDateStr] === false;
+                                const isFutureDateCanceled = bookings[showCancelButtonFor] === false;
 
-                                if (!alreadyCanceled) {
-                                    return (
-                                        <button
-                                            onClick={() => handleCancel(targetDate)}
-                                            className="w-full bg-red-500 text-white py-2 rounded hover:bg-red-600 transition"
-                                        >
-                                            Cancel {isToday ? "Today's" : "Tomorrow's"} Food
-                                        </button>
-                                    );
-                                }
+                                return (
+                                    <>
+                                        {isTodayCanceled && (
+                                            <p className="text-red-500 text-sm font-medium mb-2">
+                                                Oh' today’s food is canceled
+                                            </p>
+                                        )}
 
-                                return null;
+                                        {!isFutureDateCanceled && (
+                                            <button
+                                                onClick={() => handleCancel(showCancelButtonFor)}
+                                                className="w-full bg-red-500 text-white py-2 rounded hover:bg-red-600 transition"
+                                            >
+                                                Cancel {showCancelButtonFor === todayDateStr ? "Today's" : "Tomorrow's"} Food
+                                            </button>
+                                        )}
+                                    </>
+                                );
                             })()}
 
                             {/* Action Links */}

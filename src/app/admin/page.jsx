@@ -202,12 +202,7 @@ export default function AdminDashboard() {
   return (
     <div className="mx-auto p-6 bg-white text-black min-h-screen">
       <div className="flex justify-between items-center mb-6">
-        <h2 className="text-2xl font-semibold text-teal-700">Admin Dashboard</h2>
-        <div className="flex items-center gap-4">
-          <button onClick={() => setMonth(subMonths(month, 1))} className="text-teal-600 hover:text-teal-800 text-xl">◀</button>
-          <span className="font-medium">{format(month, 'MMMM yyyy')}</span>
-          <button onClick={() => setMonth(addMonths(month, 1))} className="text-teal-600 hover:text-teal-800 text-xl">▶</button>
-        </div>
+        <h2 className="text-2xl font-semibold text-teal-700">Foodtrack Admin Dashboard</h2>
       </div>
 
       <p className="mb-4 text-teal-700 font-medium">
