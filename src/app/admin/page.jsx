@@ -105,25 +105,26 @@ export default function AdminDashboard() {
         // ✅ FIXED LOGIC: Count all users scheduled for activeDate
         // if (workingDays.includes(activeDate)) {
 
-          const type = ['small', 'medium', 'large'].includes(category)
-            ? category
-            : 'medium';
+        const type = ['small', 'medium', 'large'].includes(category)
+          ? category
+          : 'medium';
 
 
-            stats[activeDate] = stats[activeDate] || {
-            small: 0,
-            medium: 0,
-            large: 0,
-            total: 0,
-            };
-            if (bookings[activeDate] !== false) {
-            stats[activeDate][type]++;
-            stats[activeDate].total++;
-            }
+        stats[activeDate] = stats[activeDate] || {
+          small: 0,
+          medium: 0,
+          large: 0,
+          total: 0,
+        };
+        if (bookings[activeDate] !== false) {
+          stats[activeDate][type]++;
+          stats[activeDate].total++;
+        }
 
         userData.push({
           uid,
           name: name || email,
+          category: category,
           count: userMonthCount,
           amount: userMonthCount * 50,
           bookings,
@@ -231,11 +232,38 @@ export default function AdminDashboard() {
         </div>
       </div>
 
+      <div className="my-6">
+        <h3 className="text-lg font-semibold text-teal-700 mb-2">Skipped Users on {activeDate}</h3>
+        <div className="grid grid-cols-3 gap-4">
+          {['small', 'medium', 'large'].map((cat) => {
+            const skippedUsers = users
+              .filter(u => u.category === cat && u.bookings?.[activeDate] === false)
+              .map(u => u.name || 'Unnamed');
+            return (
+              <div key={cat} className="bg-red-100 p-4 rounded shadow">
+                <h4 className="text-md font-bold capitalize mb-2">{cat}</h4>
+                {skippedUsers.length === 0 ? (
+                  <p className="text-sm text-gray-600">No Skips</p>
+                ) : (
+                  <ul className="text-sm list-disc list-inside space-y-1">
+                    {skippedUsers.map((name, index) => (
+                      <li key={index}>{name}</li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+
       <table className="w-full border-collapse mb-8">
         <thead>
           <tr className="bg-teal-100 text-left">
             <th className="border px-4 py-2">User</th>
             <th className="border px-4 py-2">Count</th>
+            <th className="border px-4 py-2">Category</th>
             <th className="border px-4 py-2">Amount (₹)</th>
             <th className="border px-4 py-2">Locked</th>
             <th className="border px-4 py-2">Start Date</th>
@@ -246,6 +274,7 @@ export default function AdminDashboard() {
             <tr key={u.uid} className="border-t">
               <td className="border px-4 py-2">{u.name}</td>
               <td className="border px-4 py-2">{u.count}</td>
+              <td className="border px-4 py-2">{u.category}</td>
               <td className="border px-4 py-2">₹{u.amount}</td>
               <td className="border px-4 py-2">
                 <button
