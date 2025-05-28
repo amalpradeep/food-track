@@ -11,42 +11,32 @@ import 'react-date-range/dist/theme/default.css';
 import dayjs from 'dayjs';
 import Header from '@/components/layout/Header';
 
-
 function MonthCalendar({ bookings }) {
     const today = dayjs();
     const year = today.year();
     const month = today.month();
     const daysInMonth = today.daysInMonth();
-
     const firstDayOfWeek = dayjs(new Date(year, month, 1)).day();
 
     const getDotColor = (dateStr) => {
-        const day = dayjs(dateStr).day(); // Sunday=0, Saturday=6
-        if (bookings[dateStr] === false) return 'red'; // canceled
-        if (day !== 0 && day !== 6) return 'green'; // all weekdays
-        return 'none'; // no dot for weekends
+        const day = dayjs(dateStr).day();
+        if (bookings[dateStr] === false) return 'red';
+        if (day !== 0 && day !== 6) return 'green';
+        return 'none';
     };
 
     const calendarDays = [];
-
-    for (let i = 0; i < firstDayOfWeek; i++) {
-        calendarDays.push(null);
-    }
-
+    for (let i = 0; i < firstDayOfWeek; i++) calendarDays.push(null);
     for (let d = 1; d <= daysInMonth; d++) {
         calendarDays.push(dayjs(new Date(year, month, d)).format('YYYY-MM-DD'));
     }
 
     return (
         <div className="max-w-md mx-auto py-5 px-4">
-            <h3 className="text-lg font-semibold mb-3 text-center">
-                Booking Status
-            </h3>
+            <h3 className="text-lg font-semibold mb-3 text-center">Booking Status</h3>
             <div className="grid grid-cols-7 gap-2 text-center select-none">
                 {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((wd) => (
-                    <div key={wd} className="font-semibold text-sm text-gray-600">
-                        {wd}
-                    </div>
+                    <div key={wd} className="font-semibold text-sm text-gray-600">{wd}</div>
                 ))}
                 {calendarDays.map((dateStr, i) =>
                     dateStr ? (
@@ -54,25 +44,17 @@ function MonthCalendar({ bookings }) {
                             <span className="text-sm">{dayjs(dateStr).date()}</span>
                             {(() => {
                                 const dotColor = getDotColor(dateStr);
-                                if (dotColor === 'red') {
-                                    return <span className="mt-1 h-2 w-2 rounded-full bg-red-500" />;
-                                } else if (dotColor === 'green') {
-                                    return <span className="mt-1 h-2 w-2 rounded-full bg-green-500" />;
-                                }
+                                if (dotColor === 'red') return <span className="mt-1 h-2 w-2 rounded-full bg-red-500" />;
+                                if (dotColor === 'green') return <span className="mt-1 h-2 w-2 rounded-full bg-green-500" />;
                                 return <span className="mt-1 h-2 w-2 invisible" />;
                             })()}
                         </div>
-                    ) : (
-                        <div key={`empty-${i}`} />
-                    )
+                    ) : <div key={`empty-${i}`} />
                 )}
             </div>
         </div>
     );
 }
-
-
-
 
 export default function Dashboard() {
     const router = useRouter();
@@ -81,16 +63,9 @@ export default function Dashboard() {
     const [bookings, setBookings] = useState({});
     const [loading, setLoading] = useState(true);
     const [showModal, setShowModal] = useState(false);
-    const [range, setRange] = useState([
-        {
-            startDate: new Date(),
-            endDate: new Date(),
-            key: 'selection',
-        },
-    ]);
-    const today = new Date().toISOString().split('T')[0];
+    const [range, setRange] = useState([{ startDate: new Date(), endDate: new Date(), key: 'selection' }]);
+    const [undoing, setUndoing] = useState({});
 
-    // redirect if not authenticated
     useEffect(() => {
         const unsub = onAuthStateChanged(auth, (data) => {
             if (!data) router.push('/login');
@@ -98,76 +73,72 @@ export default function Dashboard() {
         return () => unsub();
     }, [router]);
 
-    // fetch bookings and user data
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, async (u) => {
             if (u) {
                 setUserId(u);
                 const ref = doc(db, 'bookings', u.uid);
                 const refUser = doc(db, 'users', u.uid);
-
                 const snap = await getDoc(ref);
                 const snapUser = await getDoc(refUser);
-
                 if (snap.exists()) setBookings(snap.data());
                 if (snapUser.exists()) setUser(snapUser.data());
-
                 setLoading(false);
             }
         });
         return () => unsubscribe();
     }, []);
 
-    // Updated getMonthCount: counts booked weekdays from user.startDate in current month excluding false bookings
     const getMonthCount = () => {
         if (!user?.startDate) return 0;
-
         const start = new Date(user.startDate);
         const todayDate = new Date();
         const currentMonth = todayDate.getMonth();
         const currentYear = todayDate.getFullYear();
-
         let count = 0;
         const date = new Date(start);
-
-        while (
-            date <= todayDate &&
-            date.getMonth() === currentMonth &&
-            date.getFullYear() === currentYear
-        ) {
+        while (date <= todayDate && date.getMonth() === currentMonth && date.getFullYear() === currentYear) {
             const ymd = date.toISOString().split('T')[0];
-            const day = date.getDay(); // Sunday=0, Saturday=6
-
-            // Count only weekdays (Mon-Fri) and where booking is NOT false
+            const day = date.getDay();
             if (day !== 0 && day !== 6 && bookings[ymd] !== false) {
                 count++;
             }
             date.setDate(date.getDate() + 1);
         }
-
         return count;
     };
 
-    // cancel today's food
     const handleCancel = async (date) => {
         const ref = doc(db, 'bookings', userId.uid);
         await setDoc(ref, { [date]: false }, { merge: true });
         setBookings((prev) => ({ ...prev, [date]: false }));
     };
 
+    const handleUndoCancel = async (date) => {
+        if (!userId) return;
+        setUndoing((prev) => ({ ...prev, [date]: true }));
+        try {
+            const ref = doc(db, 'bookings', userId.uid);
+            await updateDoc(ref, { [date]: deleteField() });
+            setBookings((prev) => {
+                const newBookings = { ...prev };
+                delete newBookings[date];
+                return newBookings;
+            });
+        } finally {
+            setUndoing((prev) => ({ ...prev, [date]: false }));
+        }
+    };
+
     const getDateAt7AM = (d) => {
         const date = new Date(d);
-        date.setHours(7, 0, 0, 0); // force 7:00 AM local time
+        date.setHours(7, 0, 0, 0);
         return date;
     };
 
-
-
-    // helper to get all dates between start and end
     const getDatesInRange = (startDate, endDate) => {
         const date = new Date(startDate);
         const dates = [];
-
         while (date <= endDate) {
             const y = date.getFullYear();
             const m = String(date.getMonth() + 1).padStart(2, '0');
@@ -175,73 +146,46 @@ export default function Dashboard() {
             dates.push(`${y}-${m}-${d}`);
             date.setDate(date.getDate() + 1);
         }
-
         return dates;
     };
 
-    // confirm date range cancellation
     const handleConfirmRange = async () => {
         const datesToCancel = getDatesInRange(range[0].startDate, range[0].endDate);
         const ref = doc(db, 'bookings', userId.uid);
         const updates = {};
         const now = new Date();
-
         datesToCancel.forEach((date) => {
-            const cancelTime = getDateAt7AM(date);
-            if (cancelTime > now) {
-                updates[date] = false;
-            }
+            if (getDateAt7AM(date) > now) updates[date] = false;
         });
-
-        if (Object.keys(updates).length === 0) {
+        if (!Object.keys(updates).length) {
             alert('No valid future dates selected.');
             return;
         }
-
         await setDoc(ref, updates, { merge: true });
         setBookings((prev) => ({ ...prev, ...updates }));
         setShowModal(false);
     };
 
-    const handleUndoCancel = async (date) => {
-        if (!userId) return;
-
-        const ref = doc(db, 'bookings', userId.uid);
-
-        await updateDoc(ref, {
-            [date]: deleteField(),
-        });
-
-        setBookings((prev) => {
-            const newBookings = { ...prev };
-            delete newBookings[date];
-            return newBookings;
-        });
-    };
-
     if (loading) {
         return (
-          <div className="bg-white flex flex-col items-center justify-center h-screen">
-            <div className="animate-spin rounded-full h-10 w-10 border-4 border-t-transparent border-teal-500 mb-4" />
-            <p className="text-gray-600 text-lg font-medium">Tracking your meals...</p>
-            <p className="text-sm text-gray-400 mt-1">Just a moment while we fetch delicious data.</p>
-          </div>
+            <div className="bg-white flex flex-col items-center justify-center h-screen">
+                <div className="animate-spin rounded-full h-10 w-10 border-4 border-t-transparent border-teal-500 mb-4" />
+                <p className="text-gray-600 text-lg font-medium">Tracking your meals...</p>
+                <p className="text-sm text-gray-400 mt-1">Just a moment while we fetch delicious data.</p>
+            </div>
         );
-      }
-      
+    }
+
     return (
         <div className="min-h-screen bg-white text-gray-800">
-            {/* Header */}
             <Header isAuth />
             {user?.locked ? (
                 <div className="max-w-md mx-auto py-10 px-4">
                     <div className="flex flex-col">
                         <span>Welcome, {user?.name}</span>
-                        {user?.locked && (
-                            <span className="mt-3 text-sm text-red-600 bg-red-100 px-2 py-1 rounded">
-                                Account locked. Contact admin to approve.
-                            </span>
-                        )}
+                        <span className="mt-3 text-sm text-red-600 bg-red-100 px-2 py-1 rounded">
+                            Account locked. Contact admin to approve.
+                        </span>
                     </div>
                 </div>
             ) : (
@@ -249,22 +193,15 @@ export default function Dashboard() {
                     <div className="max-w-md mx-auto py-10 px-4">
                         <div className="space-y-4 border border-gray-200 rounded-xl p-6 shadow-sm">
                             <h2 className="text-xl font-medium">Welcome, {user?.name || 'User'}</h2>
-                            <p>
-                                <span className="font-semibold text-teal-600">My Category:</span> {user?.category}
-                            </p>
-                            <p className='font-bold'>
-                                <span className="font-semibold text-teal-600">Booked Days:</span> {getMonthCount()}
-                            </p>
-                            <p className='font-bold'>
-                                <span className="font-semibold text-teal-600">Amount to Pay:</span> ₹{getMonthCount() * 50}
-                            </p>
+                            <p><span className="font-semibold text-teal-600">My Category:</span> {user?.category}</p>
+                            <p className='font-bold'><span className="font-semibold text-teal-600">Booked Days:</span> {getMonthCount()}</p>
+                            <p className='font-bold'><span className="font-semibold text-teal-600">Amount to Pay:</span> ₹{getMonthCount() * 50}</p>
+
                             {(() => {
                                 const now = dayjs();
                                 const isBefore730 = now.isBefore(now.hour(7).minute(30));
-
                                 const todayDateStr = dayjs().format('YYYY-MM-DD');
                                 const tomorrowDateStr = dayjs().add(1, 'day').format('YYYY-MM-DD');
-
                                 const showCancelButtonFor = isBefore730 ? todayDateStr : tomorrowDateStr;
                                 const isTodayCanceled = bookings[todayDateStr] === false;
                                 const isFutureDateCanceled = bookings[showCancelButtonFor] === false;
@@ -276,7 +213,6 @@ export default function Dashboard() {
                                                 Oh' today’s food is canceled
                                             </p>
                                         )}
-
                                         {!isFutureDateCanceled && (
                                             <button
                                                 onClick={() => handleCancel(showCancelButtonFor)}
@@ -289,24 +225,19 @@ export default function Dashboard() {
                                 );
                             })()}
 
-                            {/* Action Links */}
                             <div className="flex justify-between text-sm pt-4 border-t border-gray-100 text-teal-700 font-medium">
                                 <button onClick={() => setShowModal(true)}>Schedule Cancelation</button>
                             </div>
                         </div>
                     </div>
 
-                    {/* Cancelled Dates Card */}
-                    <div className="max-w-md mx-auto  px-4">
+                    {/* Upcoming Cancellations */}
+                    <div className="max-w-md mx-auto px-4">
                         <div className="border border-red-200 rounded-xl p-6 shadow-sm bg-red-50">
                             <h3 className="text-lg font-semibold text-red-600 mb-3">Upcoming Cancellations</h3>
                             <div className="space-y-3">
                                 {Object.entries(bookings)
-                                    .filter(([date, booked]) => {
-                                        if (booked !== false) return false;
-                                        const cancelDate = new Date(date + 'T07:00:00');
-                                        return cancelDate > new Date();
-                                    })
+                                    .filter(([date, booked]) => booked === false && new Date(date + 'T07:00:00') > new Date())
                                     .sort(([a], [b]) => a.localeCompare(b))
                                     .map(([date]) => (
                                         <div
@@ -316,24 +247,31 @@ export default function Dashboard() {
                                             <span className="text-red-700 font-medium">{date}</span>
                                             <button
                                                 onClick={() => handleUndoCancel(date)}
-                                                className="text-sm bg-teal-600 hover:bg-teal-700 text-white px-3 py-1 rounded"
+                                                disabled={!!undoing[date]}
+                                                className={`text-sm px-3 py-1 rounded flex items-center justify-center transition
+                                                    ${undoing[date]
+                                                        ? 'bg-teal-400 cursor-not-allowed text-white'
+                                                        : 'bg-teal-600 hover:bg-teal-700 text-white'}
+                                                `}
                                             >
-                                                Undo Cancel
+                                                {undoing[date] ? (
+                                                    <div className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                                                ) : (
+                                                    'Undo Cancel'
+                                                )}
                                             </button>
                                         </div>
                                     ))}
-
-                                {Object.entries(bookings).filter(([date, booked]) => {
-                                    const cancelDate = new Date(date + 'T07:00:00');
-                                    return booked === false && cancelDate > new Date();
-                                }).length === 0 && (
-                                        <p className="text-gray-500">No upcoming cancellations.</p>
-                                    )}
+                                {Object.entries(bookings).filter(([date, booked]) =>
+                                    booked === false && new Date(date + 'T07:00:00') > new Date()
+                                ).length === 0 && (
+                                    <p className="text-gray-500">No upcoming cancellations.</p>
+                                )}
                             </div>
                         </div>
                     </div>
-                    <MonthCalendar bookings={bookings} />
 
+                    <MonthCalendar bookings={bookings} />
                 </>
             )}
 
@@ -343,7 +281,7 @@ export default function Dashboard() {
                     <div className="bg-white p-6 rounded-xl shadow-lg w-full max-w-lg">
                         <h3 className="text-lg font-semibold mb-4">Select Date Range to Cancel</h3>
                         <DateRange
-                            editableDateInputs={true}
+                            editableDateInputs
                             onChange={(item) => setRange([item.selection])}
                             moveRangeOnFirstSelection={false}
                             ranges={range}
