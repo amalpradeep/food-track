@@ -36,12 +36,14 @@ function MonthCalendar({ bookings }) {
     }
 
     return (
-        <div className="max-w-md mx-auto py-5 px-4">
-            <h2 className="text-xl font-bold text-center mb-1">
-                {today.format('MMMM YYYY')}
-            </h2>
-            <h3 className="text-lg font-semibold mb-3 text-center">Booking Status</h3>
-            <div className="grid grid-cols-7 gap-2 text-center select-none">
+        <div className="max-w-md mx-auto shadow relative xl:fixed xl:right-10 mt-5">
+            <div className='bg-red-600/80 text-white py-1 rounded-t'>
+                <h3 className="text-xs font-semibold mb-1 text-center pt-2">Booking Status</h3>
+                <h2 className="text-lg font-bold text-center mb-1">
+                    {today.format('MMMM YYYY')}
+                </h2>
+            </div>
+            <div className="grid grid-cols-7 gap-2 text-center select-none p-3">
                 {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((wd) => (
                     <div key={wd} className="font-semibold text-sm text-gray-600">{wd}</div>
                 ))}
@@ -60,7 +62,7 @@ function MonthCalendar({ bookings }) {
                     ) : <div key={`empty-${i}`} />
                 )}
             </div>
-            <div className="mt-4 flex justify-around text-sm text-gray-700">
+            <div className="mt-4 flex justify-around text-sm text-gray-700  pb-5">
                 <div className="flex items-center gap-2">
                     <span className="h-2 w-2 rounded-full bg-green-500" />
                     <span>Booked</span>
@@ -78,6 +80,14 @@ function MonthCalendar({ bookings }) {
     );
 }
 
+const canEditCategory = () => {
+    const now = dayjs();
+    const threePM = now.hour(14).minute(30).second(0);
+    const sevenThirtyAMNextDay = threePM.add(1, 'day').hour(7).minute(30).second(0);
+
+    return now.isAfter(threePM) && now.isBefore(sevenThirtyAMNextDay);
+};
+
 
 
 export default function Dashboard() {
@@ -90,6 +100,10 @@ export default function Dashboard() {
     const [range, setRange] = useState([{ startDate: new Date(), endDate: new Date(), key: 'selection' }]);
     const [undoing, setUndoing] = useState({});
     const [menu, setMenu] = useState('');
+    const [categoryModalOpen, setCategoryModalOpen] = useState(false);
+    const [newCategory, setNewCategory] = useState();
+    const [savingCategory, setSavingCategory] = useState(false);
+
 
     useEffect(() => {
         const unsub = onAuthStateChanged(auth, (data) => {
@@ -97,6 +111,11 @@ export default function Dashboard() {
         });
         return () => unsub();
     }, [router]);
+
+
+    useEffect(() => {
+        setNewCategory(user?.category);
+    }, [user])
 
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, async (u) => {
@@ -220,97 +239,111 @@ export default function Dashboard() {
                 </div>
             ) : (
                 <>
-                    <div className="max-w-md mx-auto py-10 px-4">
-                        {menu && (
-                            <div className="my-6">
-                                <div className="rounded-xl border border-yellow-200 bg-yellow-50 shadow p-4 space-y-2">
-                                    <h2 className="text-lg font-bold text-yellow-800">Today's Menu 🍱</h2>
-                                    <p>{menu} 🍛</p>
+                    <div className="mx-auto py-10 px-4">
+                        <div className='xl:flex w-full gap-5 justify-center'>
+                            <div className='max-w-md mx-auto w-full'>
+                                {menu && (
+                                    <div className="my-6">
+                                        <div className="rounded-xl border w-full justify-self-center border-yellow-200 bg-yellow-50 shadow p-4 space-y-2">
+                                            <h2 className="text-lg font-bold text-yellow-800">Today's Menu 🍱</h2>
+                                            <p>{menu} 🍛</p>
+                                        </div>
+                                    </div>
+                                )}
+                                <div className="space-y-4 border border-gray-200 rounded-xl p-6 shadow-sm w-full">
+                                    <h2 className="text-xl font-medium">Welcome, {user?.name || 'User'}</h2>
+                                    <p className="flex items-center gap-2">
+                                        <span className="font-semibold text-teal-600">My Category:</span> {user?.category}
+                                        <button
+                                            onClick={() => setCategoryModalOpen(true)}
+                                            disabled={!canEditCategory()}
+                                            className={`p-1 rounded transition ${canEditCategory() ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'}`}
+                                            aria-label="Edit category"
+                                        >
+                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-teal-600  -ml-3" fill="none" viewBox="0 0 30 30" stroke="currentColor" strokeWidth={2}>
+                                                <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536M9 13l6-6 3 3-6 6H9v-3z" />
+                                            </svg>
+                                        </button>
+                                    </p>
+                                    <p className='font-bold'><span className="font-semibold text-teal-600">Booked Days:</span> {getMonthCount()}</p>
+                                    <p className='font-bold'><span className="font-semibold text-teal-600">Amount to Pay:</span> ₹{getMonthCount() * 50}</p>
+
+                                    {(() => {
+                                        const now = dayjs();
+                                        const isBefore730 = now.isBefore(now.hour(7).minute(30));
+                                        const todayDateStr = dayjs().format('YYYY-MM-DD');
+                                        const tomorrowDateStr = dayjs().add(1, 'day').format('YYYY-MM-DD');
+                                        const showCancelButtonFor = isBefore730 ? todayDateStr : tomorrowDateStr;
+                                        const isTodayCanceled = bookings[todayDateStr] === false;
+                                        const isFutureDateCanceled = bookings[showCancelButtonFor] === false;
+
+                                        return (
+                                            <>
+                                                {isTodayCanceled && (
+                                                    <p className="text-red-500 text-sm font-medium mb-2">
+                                                        Oh' today’s food is canceled
+                                                    </p>
+                                                )}
+                                                {!isFutureDateCanceled && (
+                                                    <button
+                                                        onClick={() => handleCancel(showCancelButtonFor)}
+                                                        className="w-full bg-red-500 text-white py-2 rounded hover:bg-red-600 transition cursor-pointer"
+                                                    >
+                                                        Cancel {showCancelButtonFor === todayDateStr ? "Today's" : "Tomorrow's"} Food
+                                                    </button>
+                                                )}
+                                            </>
+                                        );
+                                    })()}
+
+                                    <div className="flex justify-between text-sm pt-4 border-t border-gray-100 text-teal-700 font-bold">
+                                        <button className='cursor-pointer hover:text-teal-500' onClick={() => setShowModal(true)}>📅 Schedule Cancelation</button>
+                                    </div>
+                                </div>
+
+                                {/* Upcoming Cancellations */}
+                                <div className="mt-5 w-full">
+                                    <div className="border border-red-200 rounded-xl p-6 shadow-sm bg-red-50">
+                                        <h3 className="text-lg font-semibold text-red-600 mb-3">Upcoming Cancellations</h3>
+                                        <div className="space-y-3">
+                                            {Object.entries(bookings)
+                                                .filter(([date, booked]) => booked === false && new Date(date + 'T07:00:00') > new Date())
+                                                .sort(([a], [b]) => a.localeCompare(b))
+                                                .map(([date]) => (
+                                                    <div
+                                                        key={date}
+                                                        className="flex justify-between items-center bg-white border border-red-300 rounded-md p-3 shadow-sm"
+                                                    >
+                                                        <span className="text-red-700 font-medium">{date}</span>
+                                                        <button
+                                                            onClick={() => handleUndoCancel(date)}
+                                                            disabled={!!undoing[date]}
+                                                            className={`text-sm px-3 py-1 rounded flex items-center justify-center transition
+                                                    ${undoing[date]
+                                                                    ? 'bg-teal-400 cursor-not-allowed text-white'
+                                                                    : 'bg-teal-600 hover:bg-teal-700 text-white'}
+                                                `}
+                                                        >
+                                                            {undoing[date] ? (
+                                                                <div className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                                                            ) : (
+                                                                'Undo Cancel'
+                                                            )}
+                                                        </button>
+                                                    </div>
+                                                ))}
+                                            {Object.entries(bookings).filter(([date, booked]) =>
+                                                booked === false && new Date(date + 'T07:00:00') > new Date()
+                                            ).length === 0 && (
+                                                    <p className="text-gray-500">No upcoming cancellations.</p>
+                                                )}
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
-                        )}
-
-                        <div className="space-y-4 border border-gray-200 rounded-xl p-6 shadow-sm">
-                            <h2 className="text-xl font-medium">Welcome, {user?.name || 'User'}</h2>
-                            <p><span className="font-semibold text-teal-600">My Category:</span> {user?.category}</p>
-                            <p className='font-bold'><span className="font-semibold text-teal-600">Booked Days:</span> {getMonthCount()}</p>
-                            <p className='font-bold'><span className="font-semibold text-teal-600">Amount to Pay:</span> ₹{getMonthCount() * 50}</p>
-
-                            {(() => {
-                                const now = dayjs();
-                                const isBefore730 = now.isBefore(now.hour(7).minute(30));
-                                const todayDateStr = dayjs().format('YYYY-MM-DD');
-                                const tomorrowDateStr = dayjs().add(1, 'day').format('YYYY-MM-DD');
-                                const showCancelButtonFor = isBefore730 ? todayDateStr : tomorrowDateStr;
-                                const isTodayCanceled = bookings[todayDateStr] === false;
-                                const isFutureDateCanceled = bookings[showCancelButtonFor] === false;
-
-                                return (
-                                    <>
-                                        {isTodayCanceled && (
-                                            <p className="text-red-500 text-sm font-medium mb-2">
-                                                Oh' today’s food is canceled
-                                            </p>
-                                        )}
-                                        {!isFutureDateCanceled && (
-                                            <button
-                                                onClick={() => handleCancel(showCancelButtonFor)}
-                                                className="w-full bg-red-500 text-white py-2 rounded hover:bg-red-600 transition cursor-pointer"
-                                            >
-                                                Cancel {showCancelButtonFor === todayDateStr ? "Today's" : "Tomorrow's"} Food
-                                            </button>
-                                        )}
-                                    </>
-                                );
-                            })()}
-
-                            <div className="flex justify-between text-sm pt-4 border-t border-gray-100 text-teal-700 font-bold">
-                                <button className='cursor-pointer hover:text-teal-500' onClick={() => setShowModal(true)}>📅 Schedule Cancelation</button>
-                            </div>
+                            <MonthCalendar bookings={bookings} />
                         </div>
                     </div>
-
-                    {/* Upcoming Cancellations */}
-                    <div className="max-w-md mx-auto px-4">
-                        <div className="border border-red-200 rounded-xl p-6 shadow-sm bg-red-50">
-                            <h3 className="text-lg font-semibold text-red-600 mb-3">Upcoming Cancellations</h3>
-                            <div className="space-y-3">
-                                {Object.entries(bookings)
-                                    .filter(([date, booked]) => booked === false && new Date(date + 'T07:00:00') > new Date())
-                                    .sort(([a], [b]) => a.localeCompare(b))
-                                    .map(([date]) => (
-                                        <div
-                                            key={date}
-                                            className="flex justify-between items-center bg-white border border-red-300 rounded-md p-3 shadow-sm"
-                                        >
-                                            <span className="text-red-700 font-medium">{date}</span>
-                                            <button
-                                                onClick={() => handleUndoCancel(date)}
-                                                disabled={!!undoing[date]}
-                                                className={`text-sm px-3 py-1 rounded flex items-center justify-center transition
-                                                    ${undoing[date]
-                                                        ? 'bg-teal-400 cursor-not-allowed text-white'
-                                                        : 'bg-teal-600 hover:bg-teal-700 text-white'}
-                                                `}
-                                            >
-                                                {undoing[date] ? (
-                                                    <div className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                                                ) : (
-                                                    'Undo Cancel'
-                                                )}
-                                            </button>
-                                        </div>
-                                    ))}
-                                {Object.entries(bookings).filter(([date, booked]) =>
-                                    booked === false && new Date(date + 'T07:00:00') > new Date()
-                                ).length === 0 && (
-                                        <p className="text-gray-500">No upcoming cancellations.</p>
-                                    )}
-                            </div>
-                        </div>
-                    </div>
-
-                    <MonthCalendar bookings={bookings} />
                 </>
             )}
 
@@ -343,6 +376,57 @@ export default function Dashboard() {
                     </div>
                 </div>
             )}
+            {categoryModalOpen && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+                    <div className="bg-white p-6 rounded-xl shadow-lg w-full max-w-sm">
+                        <h3 className="text-lg font-semibold mb-4">Select Category</h3>
+                        <div className="flex flex-col gap-3 mb-4">
+                            {['small', 'medium', 'large'].map((cat) => (
+                                <label key={cat} className="flex items-center gap-2 cursor-pointer">
+                                    <input
+                                        type="radio"
+                                        name="category"
+                                        value={cat}
+                                        checked={newCategory === cat}
+                                        onChange={() => setNewCategory(cat)}
+                                        className="cursor-pointer"
+                                    />
+                                    <span className="capitalize">{cat}</span>
+                                </label>
+                            ))}
+                        </div>
+                        <div className="flex justify-end gap-3">
+                            <button
+                                onClick={() => setCategoryModalOpen(false)}
+                                className="px-4 py-2 rounded bg-gray-200 hover:bg-gray-300 text-sm"
+                                disabled={savingCategory}
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={async () => {
+                                    setSavingCategory(true);
+                                    try {
+                                        const refUser = doc(db, 'users', userId.uid);
+                                        await updateDoc(refUser, { category: newCategory });
+                                        setUser((prev) => ({ ...prev, category: newCategory }));
+                                        setCategoryModalOpen(false);
+                                    } catch (e) {
+                                        alert('Error saving category');
+                                    } finally {
+                                        setSavingCategory(false);
+                                    }
+                                }}
+                                className="px-4 py-2 rounded bg-teal-600 text-white hover:bg-teal-700 text-sm"
+                                disabled={savingCategory}
+                            >
+                                {savingCategory ? 'Saving...' : 'Save'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
         </div>
     );
 }
