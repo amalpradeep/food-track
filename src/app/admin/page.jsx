@@ -18,11 +18,8 @@ import {
   endOfMonth,
   eachDayOfInterval,
   isSameMonth,
-  isBefore,
-  setHours,
-  setMinutes,
-  parseISO,
   getDay,
+  parseISO,
 } from 'date-fns';
 
 function getWorkingDays(startDate, month) {
@@ -47,13 +44,15 @@ export default function AdminDashboard() {
   const [dailyStats, setDailyStats] = useState({});
   const [loading, setLoading] = useState(true);
   const [buttonLoading, setButtonLoading] = useState(null);
+  const [showMealModal, setShowMealModal] = useState(false);
+  const [mealDate, setMealDate] = useState(format(new Date(), 'yyyy-MM-dd'));
+  const [mealMenu, setMealMenu] = useState('');
+  const [savingMeal, setSavingMeal] = useState(false);
 
-  const now = new Date();
-  const cutoffTime = setMinutes(setHours(new Date(), 15), 0);
-  const today = now;
-  const activeDate = isBefore(today, cutoffTime)
-    ? format(today, 'yyyy-MM-dd')
-    : format(new Date(today.setDate(today.getDate() + 1)), 'yyyy-MM-dd');
+
+  // NEW: selectedDate state with default today
+  const [selectedDate, setSelectedDate] = useState(format(new Date(), 'yyyy-MM-dd'));
+  const activeDate = selectedDate;
 
   useEffect(() => {
     async function fetchData() {
@@ -100,15 +99,10 @@ export default function AdminDashboard() {
 
         const userMonthCount = workingDays.length - deliveredCount;
 
-
-
-        // ✅ FIXED LOGIC: Count all users scheduled for activeDate
-        // if (workingDays.includes(activeDate)) {
-
+        // Use activeDate from selectedDate state
         const type = ['small', 'medium', 'large'].includes(category)
           ? category
           : 'medium';
-
 
         stats[activeDate] = stats[activeDate] || {
           small: 0,
@@ -152,19 +146,7 @@ export default function AdminDashboard() {
     }
 
     fetchData();
-  }, [month]);
-
-  const handleMarkAsDelivered = async (date) => {
-    setButtonLoading(date);
-    for (const user of users) {
-      const shouldSkip =
-        user.bookings?.[date] === false || user.bookings?.[date] === true;
-      if (shouldSkip) continue;
-      await setDoc(doc(db, 'bookings', user.uid), { [date]: false }, { merge: true });
-    }
-    setButtonLoading(null);
-    setMonth((prev) => new Date(prev));
-  };
+  }, [month, activeDate]); // re-fetch if month or selected date changes
 
   const handleNotDelivered = async (date) => {
     setButtonLoading(date);
@@ -172,7 +154,7 @@ export default function AdminDashboard() {
       await setDoc(doc(db, 'bookings', user.uid), { [date]: false }, { merge: true });
     }
     setButtonLoading(null);
-    setMonth((prev) => new Date(prev));
+    setMonth((prev) => new Date(prev)); // refresh data
   };
 
   const toggleLock = async (uid, currentStatus) => {
@@ -193,6 +175,24 @@ export default function AdminDashboard() {
     );
   };
 
+  const handleSaveMeal = async () => {
+    if (!mealDate || !mealMenu.trim()) return alert('Please fill all fields');
+
+    setSavingMeal(true);
+    try {
+      await setDoc(doc(db, 'meals', mealDate), { menu: mealMenu.trim() });
+      alert('Meal saved successfully');
+      setShowMealModal(false);
+      setMealMenu('');
+    } catch (error) {
+      console.error(error);
+      alert('Failed to save meal');
+    } finally {
+      setSavingMeal(false);
+    }
+  };
+
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-white">
@@ -205,20 +205,39 @@ export default function AdminDashboard() {
 
   return (
     <div className="mx-auto p-6 bg-white text-black min-h-screen">
-      <div className="flex justify-between items-center mb-6">
-        <h2 className="text-2xl font-semibold text-teal-700">Admin Dashboard</h2>
-        <div className="flex items-center gap-4">
+      <h2 className="text-2xl font-semibold text-teal-700">Admin Dashboard</h2>
+      <div className="flex items-center mb-6">
+        <div className="flex items-center gap-2">
           <button onClick={() => setMonth(subMonths(month, 1))} className="text-teal-600 hover:text-teal-800 text-xl">◀</button>
           <span className="font-medium">{format(month, 'MMMM yyyy')}</span>
           <button onClick={() => setMonth(addMonths(month, 1))} className="text-teal-600 hover:text-teal-800 text-xl">▶</button>
         </div>
+
+        {/* Date picker input for manual active date */}
+        <input
+          type="date"
+          value={selectedDate}
+          onChange={(e) => {
+            const pickedDate = e.target.value;
+            const day = new Date(pickedDate).getDay();
+            if (day === 0 || day === 6) {
+              // If weekend, ignore selection or alert user
+              alert('Weekends are disabled. Please select a weekday.');
+              return;
+            }
+            setSelectedDate(pickedDate);
+          }}
+          className="border px-2 py-1 rounded ml-4"
+        />
       </div>
 
-      <p className="mb-4 text-teal-700 font-medium">
+      <p className="mb-4 text-teal-700 font-medium flex gap-3">
         Total Users (excluding admin): <span className="font-bold">{userCount}</span>
-      </p>
 
-      <div className="mb-6">
+        <button onClick={() => setShowMealModal(true)} className="text-teal-600 border rounded p-1 hover:text-teal-800 text-sm font-bold">Set menu</button>
+
+      </p>
+      <div className="mb-6 overflow-x-auto">
         <h3 className="text-lg font-semibold text-teal-700 mb-2"> Count for the day ({activeDate})</h3>
         <div className="grid grid-cols-4 gap-4">
           {['small', 'medium', 'large', 'total'].map((cat) => (
@@ -232,7 +251,7 @@ export default function AdminDashboard() {
         </div>
       </div>
 
-      <div className="my-6">
+      <div className="my-6 overflow-x-auto">
         <h3 className="text-lg font-semibold text-teal-700 mb-2">Skipped Users on {activeDate}</h3>
         <div className="grid grid-cols-3 gap-4">
           {['small', 'medium', 'large'].map((cat) => {
@@ -257,53 +276,55 @@ export default function AdminDashboard() {
         </div>
       </div>
 
-
-      <table className="w-full border-collapse mb-8">
-        <thead>
-          <tr className="bg-teal-100 text-left">
-            <th className="border px-4 py-2">User</th>
-            <th className="border px-4 py-2">Count</th>
-            <th className="border px-4 py-2">Category</th>
-            <th className="border px-4 py-2">Amount (₹)</th>
-            <th className="border px-4 py-2">Locked</th>
-            <th className="border px-4 py-2">Start Date</th>
-          </tr>
-        </thead>
-        <tbody>
-          {users.map((u) => (
-            <tr key={u.uid} className="border-t">
-              <td className="border px-4 py-2">{u.name}</td>
-              <td className="border px-4 py-2">{u.count}</td>
-              <td className="border px-4 py-2">{u.category}</td>
-              <td className="border px-4 py-2">₹{u.amount}</td>
-              <td className="border px-4 py-2">
-                <button
-                  onClick={() => toggleLock(u.uid, u.locked)}
-                  className={`px-2 py-1 text-sm cursor-pointer rounded ${u.locked ? 'bg-red-500' : 'bg-green-500'} text-white`}
-                >
-                  {u.locked ? 'Locked' : 'Unlocked'}
-                </button>
-              </td>
-              <td className="border px-4 py-2">
-                <input
-                  type="date"
-                  value={u.startDate || ''}
-                  onChange={(e) => updateStartDate(u.uid, e.target.value)}
-                  className="border px-2 py-1 rounded"
-                />
-              </td>
+      <div className="overflow-x-auto">
+        <table className="w-full border-collapse mb-8">
+          <thead>
+            <tr className="bg-teal-100 text-left">
+              <th className="border px-4 py-2">User</th>
+              <th className="border px-4 py-2">Count</th>
+              <th className="border px-4 py-2">Category</th>
+              <th className="border px-4 py-2">Amount (₹)</th>
+              <th className="border px-4 py-2">Locked</th>
+              <th className="border px-4 py-2">Start Date</th>
             </tr>
-          ))}
-        </tbody>
-        <tfoot>
-          <tr className="bg-teal-100 font-semibold">
-            <td className="border px-4 py-2">Total</td>
-            <td className="border px-4 py-2">{totalCount}</td>
-            <td className="border px-4 py-2">₹{totalAmount}</td>
-            <td colSpan={2}></td>
-          </tr>
-        </tfoot>
-      </table>
+          </thead>
+          <tbody>
+            {users.map((u) => (
+              <tr key={u.uid} className="border-t">
+                <td className="border px-4 py-2">{u.name}</td>
+                <td className="border px-4 py-2">{u.count}</td>
+                <td className="border px-4 py-2">{u.category}</td>
+                <td className="border px-4 py-2">₹{u.amount}</td>
+                <td className="border px-4 py-2">
+                  <button
+                    onClick={() => toggleLock(u.uid, u.locked)}
+                    className={`px-2 py-1 text-sm cursor-pointer rounded ${u.locked ? 'bg-red-500' : 'bg-green-500'} text-white`}
+                  >
+                    {u.locked ? 'Locked' : 'Unlocked'}
+                  </button>
+                </td>
+                <td className="border px-4 py-2">
+                  <input
+                    type="date"
+                    value={u.startDate || ''}
+                    onChange={(e) => updateStartDate(u.uid, e.target.value)}
+                    className="border px-2 py-1 rounded"
+                  />
+                </td>
+              </tr>
+            ))}
+          </tbody>
+          <tfoot>
+            <tr className="bg-teal-100 font-semibold">
+              <td className="border px-4 py-2">Total</td>
+              <td className="border px-4 py-2">{totalCount}</td>
+              <td className="border px-4 py-2"></td>
+              <td className="border px-4 py-2">₹{totalAmount}</td>
+              <td colSpan={2}></td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
 
       <div className="border border-teal-300 rounded-xl p-4 bg-teal-50">
         <h3 className="text-lg font-semibold mb-4 text-teal-800">Missing Deliveries (Working Days Only)</h3>
@@ -312,16 +333,9 @@ export default function AdminDashboard() {
         ) : (
           <ul className="space-y-3">
             {missingDates.map((date) => (
-              <li key={date} className="flex items-center justify-between">
+              <li key={date} className="flex items-center justify-between border-b pb-2 border-b-teal-500">
                 <span className="text-black">{date}</span>
                 <div className="flex gap-2">
-                  <button
-                    onClick={() => handleMarkAsDelivered(date)}
-                    disabled={buttonLoading === date}
-                    className={`${buttonLoading === date ? 'opacity-50' : ''} bg-teal-600 text-white px-3 py-1 rounded text-sm`}
-                  >
-                    {buttonLoading === date ? 'Updating...' : 'Mark as Delivered'}
-                  </button>
                   <button
                     onClick={() => handleNotDelivered(date)}
                     disabled={buttonLoading === date}
@@ -335,6 +349,47 @@ export default function AdminDashboard() {
           </ul>
         )}
       </div>
+      {showMealModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white p-6 rounded-xl shadow-lg w-full max-w-md">
+            <h3 className="text-lg font-semibold mb-4">Add Meal Menu</h3>
+
+            <label className="block mb-2 text-sm font-medium text-gray-700">Select Date</label>
+            <input
+              type="date"
+              value={mealDate}
+              onChange={(e) => setMealDate(e.target.value)}
+              className="w-full border px-3 py-2 rounded mb-4"
+            />
+
+            <label className="block mb-2 text-sm font-medium text-gray-700">Meal Menu</label>
+            <textarea
+              value={mealMenu}
+              onChange={(e) => setMealMenu(e.target.value)}
+              rows={4}
+              className="w-full border px-3 py-2 rounded mb-4"
+              placeholder="Enter meal items..."
+            />
+
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => setShowMealModal(false)}
+                className="px-4 py-2 rounded bg-gray-200 hover:bg-gray-300 text-sm"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSaveMeal}
+                disabled={savingMeal}
+                className="px-4 py-2 rounded bg-teal-600 text-white hover:bg-teal-700 text-sm"
+              >
+                {savingMeal ? 'Saving...' : 'Save Meal'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }

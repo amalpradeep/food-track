@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { auth, db } from '@/lib/firebase';
-import { onAuthStateChanged, signOut } from 'firebase/auth';
+import { onAuthStateChanged } from 'firebase/auth';
 import { deleteField, doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
 import { useRouter } from 'next/navigation';
 import { DateRange } from 'react-date-range';
@@ -19,10 +19,14 @@ function MonthCalendar({ bookings }) {
     const firstDayOfWeek = dayjs(new Date(year, month, 1)).day();
 
     const getDotColor = (dateStr) => {
-        const day = dayjs(dateStr).day();
-        if (bookings[dateStr] === false) return 'red';
-        if (day !== 0 && day !== 6) return 'green';
-        return 'none';
+        const date = dayjs(dateStr);
+        const day = date.day();
+        const isFuture = date.isAfter(today, 'day');
+        const isCanceled = bookings[dateStr] === false;
+
+        if (isCanceled) return 'red';
+        if (day === 0 || day === 6) return 'none'; // skip weekends
+        return isFuture ? 'yellow' : 'green';
     };
 
     const calendarDays = [];
@@ -33,6 +37,9 @@ function MonthCalendar({ bookings }) {
 
     return (
         <div className="max-w-md mx-auto py-5 px-4">
+            <h2 className="text-xl font-bold text-center mb-1">
+                {today.format('MMMM YYYY')}
+            </h2>
             <h3 className="text-lg font-semibold mb-3 text-center">Booking Status</h3>
             <div className="grid grid-cols-7 gap-2 text-center select-none">
                 {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((wd) => (
@@ -46,15 +53,32 @@ function MonthCalendar({ bookings }) {
                                 const dotColor = getDotColor(dateStr);
                                 if (dotColor === 'red') return <span className="mt-1 h-2 w-2 rounded-full bg-red-500" />;
                                 if (dotColor === 'green') return <span className="mt-1 h-2 w-2 rounded-full bg-green-500" />;
+                                if (dotColor === 'yellow') return <span className="mt-1 h-2 w-2 rounded-full bg-yellow-400" />;
                                 return <span className="mt-1 h-2 w-2 invisible" />;
                             })()}
                         </div>
                     ) : <div key={`empty-${i}`} />
                 )}
             </div>
+            <div className="mt-4 flex justify-around text-sm text-gray-700">
+                <div className="flex items-center gap-2">
+                    <span className="h-2 w-2 rounded-full bg-green-500" />
+                    <span>Booked</span>
+                </div>
+                <div className="flex items-center gap-2">
+                    <span className="h-2 w-2 rounded-full bg-yellow-400" />
+                    <span>Upcoming</span>
+                </div>
+                <div className="flex items-center gap-2">
+                    <span className="h-2 w-2 rounded-full bg-red-500" />
+                    <span>Canceled</span>
+                </div>
+            </div>
         </div>
     );
 }
+
+
 
 export default function Dashboard() {
     const router = useRouter();
@@ -65,6 +89,7 @@ export default function Dashboard() {
     const [showModal, setShowModal] = useState(false);
     const [range, setRange] = useState([{ startDate: new Date(), endDate: new Date(), key: 'selection' }]);
     const [undoing, setUndoing] = useState({});
+    const [menu, setMenu] = useState('');
 
     useEffect(() => {
         const unsub = onAuthStateChanged(auth, (data) => {
@@ -81,6 +106,11 @@ export default function Dashboard() {
                 const refUser = doc(db, 'users', u.uid);
                 const snap = await getDoc(ref);
                 const snapUser = await getDoc(refUser);
+                const today = dayjs().format('YYYY-MM-DD');
+                const mealDoc = await getDoc(doc(db, 'meals', today));
+                if (mealDoc.exists()) {
+                    setMenu(mealDoc.data().menu);
+                }
                 if (snap.exists()) setBookings(snap.data());
                 if (snapUser.exists()) setUser(snapUser.data());
                 setLoading(false);
@@ -191,6 +221,15 @@ export default function Dashboard() {
             ) : (
                 <>
                     <div className="max-w-md mx-auto py-10 px-4">
+                        {menu && (
+                            <div className="my-6">
+                                <div className="rounded-xl border border-yellow-200 bg-yellow-50 shadow p-4 space-y-2">
+                                    <h2 className="text-lg font-bold text-yellow-800">Today's Menu 🍱</h2>
+                                    <p>{menu} 🍛</p>
+                                </div>
+                            </div>
+                        )}
+
                         <div className="space-y-4 border border-gray-200 rounded-xl p-6 shadow-sm">
                             <h2 className="text-xl font-medium">Welcome, {user?.name || 'User'}</h2>
                             <p><span className="font-semibold text-teal-600">My Category:</span> {user?.category}</p>
@@ -216,7 +255,7 @@ export default function Dashboard() {
                                         {!isFutureDateCanceled && (
                                             <button
                                                 onClick={() => handleCancel(showCancelButtonFor)}
-                                                className="w-full bg-red-500 text-white py-2 rounded hover:bg-red-600 transition"
+                                                className="w-full bg-red-500 text-white py-2 rounded hover:bg-red-600 transition cursor-pointer"
                                             >
                                                 Cancel {showCancelButtonFor === todayDateStr ? "Today's" : "Tomorrow's"} Food
                                             </button>
@@ -225,8 +264,8 @@ export default function Dashboard() {
                                 );
                             })()}
 
-                            <div className="flex justify-between text-sm pt-4 border-t border-gray-100 text-teal-700 font-medium">
-                                <button onClick={() => setShowModal(true)}>Schedule Cancelation</button>
+                            <div className="flex justify-between text-sm pt-4 border-t border-gray-100 text-teal-700 font-bold">
+                                <button className='cursor-pointer hover:text-teal-500' onClick={() => setShowModal(true)}>📅 Schedule Cancelation</button>
                             </div>
                         </div>
                     </div>
@@ -265,8 +304,8 @@ export default function Dashboard() {
                                 {Object.entries(bookings).filter(([date, booked]) =>
                                     booked === false && new Date(date + 'T07:00:00') > new Date()
                                 ).length === 0 && (
-                                    <p className="text-gray-500">No upcoming cancellations.</p>
-                                )}
+                                        <p className="text-gray-500">No upcoming cancellations.</p>
+                                    )}
                             </div>
                         </div>
                     </div>
