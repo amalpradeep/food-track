@@ -48,6 +48,9 @@ export default function AdminDashboard() {
   const [mealDate, setMealDate] = useState(format(new Date(), 'yyyy-MM-dd'));
   const [mealMenu, setMealMenu] = useState('');
   const [savingMeal, setSavingMeal] = useState(false);
+  const [showNotifyModal, setShowNotifyModal] = useState(false);
+  const [notifyMessage, setNotifyMessage] = useState('');
+  const [sendingNotify, setSendingNotify] = useState(false);
 
 
   // NEW: selectedDate state with default today
@@ -152,6 +155,7 @@ export default function AdminDashboard() {
     setButtonLoading(date);
     for (const user of users) {
       await setDoc(doc(db, 'bookings', user.uid), { [date]: false }, { merge: true });
+      sendNotification('🚫🥪 No Food Today 🥲 Sorry guys, the food took a day off.')
     }
     setButtonLoading(null);
     setMonth((prev) => new Date(prev)); // refresh data
@@ -189,6 +193,18 @@ export default function AdminDashboard() {
       alert('Failed to save meal');
     } finally {
       setSavingMeal(false);
+    }
+  };
+
+  const sendNotification = async (message) => {
+    try {
+      await fetch('/api/notify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: message || '🚨 Notification from Admin!' }),
+      });
+    } catch (error) {
+
     }
   };
 
@@ -235,6 +251,12 @@ export default function AdminDashboard() {
         Total Users (excluding admin): <span className="font-bold">{userCount}</span>
 
         <button onClick={() => setShowMealModal(true)} className="text-teal-600 border rounded p-1 hover:text-teal-800 text-sm font-bold">Set menu</button>
+        <button
+          onClick={() => setShowNotifyModal(true)}
+          className="text-teal-600 border rounded p-1 hover:text-teal-800 text-sm font-bold"
+        >
+          Send Notify
+        </button>
 
       </p>
       <div className="mb-6 overflow-x-auto">
@@ -384,6 +406,49 @@ export default function AdminDashboard() {
                 className="px-4 py-2 rounded bg-teal-600 text-white hover:bg-teal-700 text-sm"
               >
                 {savingMeal ? 'Saving...' : 'Save Meal'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showNotifyModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white p-6 rounded-xl shadow-lg w-full max-w-md">
+            <h3 className="text-lg font-semibold mb-4">Send Notification</h3>
+
+            <label className="block mb-2 text-sm font-medium text-gray-700">Message</label>
+            <textarea
+              value={notifyMessage}
+              onChange={(e) => setNotifyMessage(e.target.value)}
+              rows={4}
+              className="w-full border px-3 py-2 rounded mb-4"
+              placeholder="Type your notification..."
+            />
+
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => setShowNotifyModal(false)}
+                className="px-4 py-2 rounded bg-gray-200 hover:bg-gray-300 text-sm"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={async () => {
+                  if (!notifyMessage.trim()) {
+                    alert('Message is empty');
+                    return;
+                  }
+                  setSendingNotify(true);
+                  await sendNotification(notifyMessage.trim());
+                  setNotifyMessage('');
+                  setShowNotifyModal(false);
+                  setSendingNotify(false);
+                }}
+                disabled={sendingNotify}
+                className="px-4 py-2 rounded bg-teal-600 text-white hover:bg-teal-700 text-sm"
+              >
+                {sendingNotify ? 'Sending...' : 'Send'}
               </button>
             </div>
           </div>

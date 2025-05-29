@@ -164,9 +164,22 @@ export default function Dashboard() {
         return count;
     };
 
+    const sendNotification = async (message) => {
+        try {
+            await fetch('/api/user-notify', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ message: message || '🚨 Notification from user!' }),
+            });
+        } catch (error) {
+
+        }
+    };
+
     const handleCancel = async (date) => {
         const ref = doc(db, 'bookings', userId.uid);
         await setDoc(ref, { [date]: false }, { merge: true });
+        sendNotification(`${user?.name} Food canceled for ${date}`);
         setBookings((prev) => ({ ...prev, [date]: false }));
     };
 
@@ -181,6 +194,7 @@ export default function Dashboard() {
                 delete newBookings[date];
                 return newBookings;
             });
+            sendNotification(`${user?.name} Food canceled -Undo for ${date}`);
         } finally {
             setUndoing((prev) => ({ ...prev, [date]: false }));
         }
