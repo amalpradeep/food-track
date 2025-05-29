@@ -226,6 +226,7 @@ export default function Dashboard() {
         const now = new Date();
         datesToCancel.forEach((date) => {
             if (getDateAt7AM(date) > now) updates[date] = false;
+            sendNotification(`${user?.name} Food canceled for ${date}`);
         });
         if (!Object.keys(updates).length) {
             alert('No valid future dates selected.');
