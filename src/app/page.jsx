@@ -10,6 +10,7 @@ import 'react-date-range/dist/styles.css';
 import 'react-date-range/dist/theme/default.css';
 import dayjs from 'dayjs';
 import Header from '@/components/layout/Header';
+import { QRCodeCanvas, Qr } from 'qrcode.react';
 
 function MonthCalendar({ bookings }) {
     const today = dayjs();
@@ -110,6 +111,7 @@ export default function Dashboard() {
     const [categoryModalOpen, setCategoryModalOpen] = useState(false);
     const [newCategory, setNewCategory] = useState();
     const [savingCategory, setSavingCategory] = useState(false);
+    const [qrModalOpen, setQrModalOpen] = useState(false);
 
 
     useEffect(() => {
@@ -246,6 +248,9 @@ export default function Dashboard() {
             </div>
         );
     }
+    const amountToPay = getMonthCount() * 50;
+
+    const upiLink = `upi://pay?pa=amalpradeep12-2@okicici&pn=Amal%20Pradeep&am=${amountToPay}&aid=uGICAgICgjf-IHQ`;
 
     return (
         <div className="min-h-screen bg-white text-gray-800">
@@ -289,6 +294,30 @@ export default function Dashboard() {
                                     </p>
                                     <p className='font-bold'><span className="font-semibold text-teal-600">Booked Days:</span> {getMonthCount()}</p>
                                     <p className='font-bold'><span className="font-semibold text-teal-600">Amount to Pay:</span> ₹{getMonthCount() * 50}</p>
+                                    <p className="font-bold flex items-center gap-2">
+                                        <span className="font-semibold text-teal-600">Amount to Pay:</span> ₹{amountToPay}
+                                        <span
+                                            onClick={() => setQrModalOpen(true)}
+                                            className="cursor-pointer hover:opacity-80"
+                                            title="Show payment QR code"
+                                        >
+                                            <svg
+                                                xmlns="http://www.w3.org/2000/svg"
+                                                width={20}
+                                                height={20}
+                                                fill='black'
+                                                viewBox="0 0 24 24"
+                                            >
+                                                <rect x="2" y="2" width="6" height="6" />
+                                                <rect x="2" y="10" width="6" height="6" />
+                                                <rect x="10" y="2" width="6" height="6" />
+                                                <rect x="14" y="14" width="2" height="2" />
+                                                <rect x="18" y="14" width="2" height="2" />
+                                                <rect x="14" y="18" width="2" height="2" />
+                                            </svg>
+                                        </span>
+                                    </p>
+
 
                                     {(() => {
                                         const now = dayjs();
@@ -449,6 +478,20 @@ export default function Dashboard() {
                 </div>
             )}
 
+            {qrModalOpen && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+                    <div className="bg-white p-6 rounded-xl shadow-lg w-full max-w-sm flex flex-col items-center">
+                        <h3 className="text-lg font-semibold mb-4">Scan to Pay ₹{amountToPay}</h3>
+                        <QRCodeCanvas value={upiLink} size={220} level="Q" />
+                        <button
+                            onClick={() => setQrModalOpen(false)}
+                            className="mt-6 px-6 py-2 rounded bg-teal-600 text-white hover:bg-teal-700"
+                        >
+                            Close
+                        </button>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
