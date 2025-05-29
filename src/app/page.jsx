@@ -293,7 +293,6 @@ export default function Dashboard() {
                                         </button>
                                     </p>
                                     <p className='font-bold'><span className="font-semibold text-teal-600">Booked Days:</span> {getMonthCount()}</p>
-                                    <p className='font-bold'><span className="font-semibold text-teal-600">Amount to Pay:</span> ₹{getMonthCount() * 50}</p>
                                     <p className="font-bold flex items-center gap-2">
                                         <span className="font-semibold text-teal-600">Amount to Pay:</span> ₹{amountToPay}
                                         <span
