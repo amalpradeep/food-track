@@ -15,6 +15,7 @@ function MonthCalendar({ bookings }) {
     const today = dayjs();
     const year = today.year();
     const month = today.month();
+    const day = today.date();
     const daysInMonth = today.daysInMonth();
     const firstDayOfWeek = dayjs(new Date(year, month, 1)).day();
 
@@ -36,12 +37,18 @@ function MonthCalendar({ bookings }) {
     }
 
     return (
-        <div className="max-w-md mx-auto shadow relative xl:fixed xl:right-10 mt-5">
-            <div className='bg-red-600/80 text-white py-1 rounded-t'>
-                <h3 className="text-xs font-semibold mb-1 text-center pt-2">Booking Status</h3>
-                <h2 className="text-lg font-bold text-center mb-1">
-                    {today.format('MMMM YYYY')}
-                </h2>
+        <div className="max-w-sm mx-auto shadow relative xl:fixed xl:right-10 mt-5">
+            <div className='bg-red-600/80 text-white py-1 pl-1 rounded-t flex'>
+                <div className='bg-white text-black w-1/4 text-4xl flex flex-col items-center justify-center rounded font-bold' >
+                    <span className='text-xs font-thin'>Today</span>
+                    {day}
+                </div>
+                <div className='ml-5'>
+                    <h3 className="text-xs font-semibold mb-1 text-center pt-2">Booking Status</h3>
+                    <h2 className="text-lg font-bold text-center mb-1">
+                        {today.format('MMMM YYYY')}
+                    </h2>
+                </div>
             </div>
             <div className="grid grid-cols-7 gap-2 text-center select-none p-3">
                 {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((wd) => (
@@ -241,7 +248,7 @@ export default function Dashboard() {
                 <>
                     <div className="mx-auto py-10 px-4">
                         <div className='xl:flex w-full gap-5 justify-center'>
-                            <div className='max-w-md mx-auto w-full'>
+                            <div className='max-w-sm mx-auto w-full'>
                                 {menu && (
                                     <div className="my-6">
                                         <div className="rounded-xl border w-full justify-self-center border-yellow-200 bg-yellow-50 shadow p-4 space-y-2">
@@ -362,13 +369,13 @@ export default function Dashboard() {
                         <div className="mt-4 flex justify-end gap-3">
                             <button
                                 onClick={() => setShowModal(false)}
-                                className="px-4 py-2 rounded bg-gray-200 hover:bg-gray-300 text-sm"
+                                className="px-4 cursor-pointer py-2 rounded bg-gray-200 hover:bg-gray-300 text-sm"
                             >
                                 Cancel
                             </button>
                             <button
                                 onClick={handleConfirmRange}
-                                className="px-4 py-2 rounded bg-teal-600 text-white hover:bg-teal-700 text-sm"
+                                className="px-4 py-2 cursor-pointer rounded bg-teal-600 text-white hover:bg-teal-700 text-sm"
                             >
                                 Confirm
                             </button>
