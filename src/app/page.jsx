@@ -11,6 +11,7 @@ import 'react-date-range/dist/theme/default.css';
 import dayjs from 'dayjs';
 import Header from '@/components/layout/Header';
 import { QRCodeCanvas, Qr } from 'qrcode.react';
+import Image from 'next/image';
 
 function MonthCalendar({ bookings }) {
     const today = dayjs();
@@ -152,21 +153,23 @@ export default function Dashboard() {
       
         const start = new Date(user.startDate);
         const today = new Date();
-        const currentMonth = today.getMonth(); 
-        const currentYear = today.getFullYear();
+      
+        start.setHours(0, 0, 0, 0);
+        today.setHours(0, 0, 0, 0);
       
         let count = 0;
-        const date = new Date(currentYear, currentMonth, 1); 
+        let current = new Date(today.getFullYear(), today.getMonth(), 1);
       
-        while (date <= today) {
-          const ymd = date.toISOString().split('T')[0];
-          const day = date.getDay();
+        while (current <= today) {
+          const day = current.getDay();
       
-          if (date >= start && day !== 0 && day !== 6 && bookings[ymd] !== false) {
+          const ymd = `${current.getFullYear()}-${String(current.getMonth() + 1).padStart(2, '0')}-${String(current.getDate()).padStart(2, '0')}`;
+            
+          if (current >= start && day !== 0 && day !== 6 && bookings[ymd] !== false) {
             count++;
           }
       
-          date.setDate(date.getDate() + 1);
+          current.setDate(current.getDate() + 1);
         }
       
         return count;
@@ -250,7 +253,7 @@ export default function Dashboard() {
     if (loading) {
         return (
             <div className="bg-white flex flex-col items-center justify-center h-screen">
-                <div className="animate-spin rounded-full h-10 w-10 border-4 border-t-transparent border-teal-500 mb-4" />
+                <Image height={200} width={200} alt="Loading" src="/loading.gif" />
                 <p className="text-gray-600 text-lg font-medium">Tracking your meals...</p>
                 <p className="text-sm text-gray-400 mt-1">Just a moment while we fetch delicious data.</p>
             </div>
