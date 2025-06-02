@@ -272,7 +272,7 @@ export default function Dashboard() {
     if (loading) {
         return (
             <div className="bg-white flex flex-col items-center justify-center h-screen">
-                <Image height={200} width={200} alt="Loading" src="/loading.gif" />
+                <Image height={80} width={80} alt="Loading" src="/loading.gif" />
                 <p className="text-gray-600 text-lg font-medium">Tracking your meals...</p>
                 <p className="text-sm text-gray-400 mt-1">Just a moment while we fetch delicious data.</p>
             </div>

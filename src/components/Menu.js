@@ -7,7 +7,7 @@ export default function MenuSection({ menu }) {
 
   const isBetween7AMAnd2PM =
     now.isAfter(dayjs().hour(7).minute(0)) &&
-    now.isBefore(dayjs().hour(15).minute(0));
+    now.isBefore(dayjs().hour(14).minute(0));
 
   if (!isBetween7AMAnd2PM || !menu) return null;
 
