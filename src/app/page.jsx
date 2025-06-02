@@ -149,22 +149,30 @@ export default function Dashboard() {
 
     const getMonthCount = () => {
         if (!user?.startDate) return 0;
+      
         const start = new Date(user.startDate);
-        const todayDate = new Date();
-        const currentMonth = todayDate.getMonth();
-        const currentYear = todayDate.getFullYear();
+        const today = new Date();
+        const currentMonth = today.getMonth(); 
+        const currentYear = today.getFullYear();
+      
         let count = 0;
-        const date = new Date(start);
-        while (date <= todayDate && date.getMonth() === currentMonth && date.getFullYear() === currentYear) {
-            const ymd = date.toISOString().split('T')[0];
-            const day = date.getDay();
-            if (day !== 0 && day !== 6 && bookings[ymd] !== false) {
-                count++;
-            }
-            date.setDate(date.getDate() + 1);
+        const date = new Date(currentYear, currentMonth, 1); 
+      
+        while (date <= today) {
+          const ymd = date.toISOString().split('T')[0];
+          const day = date.getDay();
+      
+          if (date >= start && day !== 0 && day !== 6 && bookings[ymd] !== false) {
+            count++;
+          }
+      
+          date.setDate(date.getDate() + 1);
         }
+      
         return count;
-    };
+      };
+      
+
 
     const sendNotification = async (message) => {
         try {
