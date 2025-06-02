@@ -12,6 +12,7 @@ import dayjs from 'dayjs';
 import Header from '@/components/layout/Header';
 import { QRCodeCanvas, Qr } from 'qrcode.react';
 import Image from 'next/image';
+import MenuSection from '@/components/Menu';
 
 const capitalizeWords = (str) => {
     return str.replace(/\b\w/g, (char) => char.toUpperCase());
@@ -267,6 +268,7 @@ export default function Dashboard() {
         setShowModal(false);
     };
 
+
     if (loading) {
         return (
             <div className="bg-white flex flex-col items-center justify-center h-screen">
@@ -297,14 +299,7 @@ export default function Dashboard() {
                     <div className="mx-auto py-10 px-4">
                         <div className='xl:flex w-full gap-5 justify-center'>
                             <div className='max-w-sm mx-auto w-full'>
-                                {menu && (
-                                    <div className="my-6">
-                                        <div className="rounded-xl border w-full justify-self-center border-yellow-200 bg-yellow-50 shadow p-4 space-y-2">
-                                            <h2 className="text-lg font-bold text-yellow-800">Today's Menu 🍱</h2>
-                                            <p>{menu} 🍛</p>
-                                        </div>
-                                    </div>
-                                )}
+                                <MenuSection menu={menu} />
                                 <div className="space-y-4 border border-gray-200 rounded-xl p-6 shadow-sm w-full">
                                     <h2 className="text-xl font-medium">Welcome, {user?.name || 'User'}</h2>
                                     <p className="flex items-center gap-2">
@@ -328,7 +323,7 @@ export default function Dashboard() {
                                             className="cursor-pointer hover:opacity-80"
                                             title="Show payment QR code"
                                         >
-                                           <Image width={15} height={15} unoptimized src="https://static-00.iconduck.com/assets.00/qrcode-scan-icon-2048x2048-666d2r1w.png" alt="QRCode" />
+                                            <Image width={15} height={15} unoptimized src="https://static-00.iconduck.com/assets.00/qrcode-scan-icon-2048x2048-666d2r1w.png" alt="QRCode" />
                                         </span>
                                     </p>
 
