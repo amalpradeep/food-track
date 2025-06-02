@@ -155,8 +155,8 @@ export default function AdminDashboard() {
     setButtonLoading(date);
     for (const user of users) {
       await setDoc(doc(db, 'bookings', user.uid), { [date]: false }, { merge: true });
-      sendNotification('🚫🥪 No Food Today 🥲 Sorry guys, the food took a day off.')
     }
+    sendNotification('🚫🥪 No Food Today 🥲 Sorry guys, the food took a day off.')
     setButtonLoading(null);
     setMonth((prev) => new Date(prev)); // refresh data
   };
