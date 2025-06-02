@@ -153,13 +153,21 @@ export default function AdminDashboard() {
 
   const handleNotDelivered = async (date) => {
     setButtonLoading(date);
-    for (const user of users) {
+  
+    const updates = users.map(async (user) => {
       await setDoc(doc(db, 'bookings', user.uid), { [date]: false }, { merge: true });
-    }
-    sendNotification('🚫🥪 No Food Today 🥲 Sorry guys, the food took a day off.')
+    });
+  
+    const cancellationRef = doc(db, 'cancellations', 'global');
+    await Promise.all([
+      ...updates,
+      setDoc(cancellationRef, { [date]: false }, { merge: true })
+    ]);
+
     setButtonLoading(null);
     setMonth((prev) => new Date(prev)); // refresh data
   };
+  
 
   const toggleLock = async (uid, currentStatus) => {
     setButtonLoading(uid);

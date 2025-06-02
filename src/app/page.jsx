@@ -13,6 +13,11 @@ import Header from '@/components/layout/Header';
 import { QRCodeCanvas, Qr } from 'qrcode.react';
 import Image from 'next/image';
 
+const capitalizeWords = (str) => {
+    return str.replace(/\b\w/g, (char) => char.toUpperCase());
+};
+
+
 function MonthCalendar({ bookings }) {
     const today = dayjs();
     const year = today.year();
@@ -82,7 +87,7 @@ function MonthCalendar({ bookings }) {
                 </div>
                 <div className="flex items-center gap-2">
                     <span className="h-2 w-2 rounded-full bg-red-500" />
-                    <span>Canceled</span>
+                    <span>Cancelled</span>
                 </div>
             </div>
         </div>
@@ -104,6 +109,8 @@ export default function Dashboard() {
     const [user, setUser] = useState(null);
     const [userId, setUserId] = useState(null);
     const [bookings, setBookings] = useState({});
+    const [cancellations, setCancellations] = useState({});
+
     const [loading, setLoading] = useState(true);
     const [showModal, setShowModal] = useState(false);
     const [range, setRange] = useState([{ startDate: new Date(), endDate: new Date(), key: 'selection' }]);
@@ -131,50 +138,60 @@ export default function Dashboard() {
         const unsubscribe = onAuthStateChanged(auth, async (u) => {
             if (u) {
                 setUserId(u);
-                const ref = doc(db, 'bookings', u.uid);
-                const refUser = doc(db, 'users', u.uid);
-                const snap = await getDoc(ref);
-                const snapUser = await getDoc(refUser);
+
+                const bookingsRef = doc(db, 'bookings', u.uid);
+                const userRef = doc(db, 'users', u.uid);
+                const cancellationsRef = doc(db, 'cancellations', 'global');
+
+                const [snapBookings, snapUser, snapCancellations] = await Promise.all([
+                    getDoc(bookingsRef),
+                    getDoc(userRef),
+                    getDoc(cancellationsRef)
+                ]);
+
                 const today = dayjs().format('YYYY-MM-DD');
                 const mealDoc = await getDoc(doc(db, 'meals', today));
-                if (mealDoc.exists()) {
-                    setMenu(mealDoc.data().menu);
-                }
-                if (snap.exists()) setBookings(snap.data());
+                if (mealDoc.exists()) setMenu(mealDoc.data().menu);
+
+                if (snapBookings.exists()) setBookings(snapBookings.data());
                 if (snapUser.exists()) setUser(snapUser.data());
+                if (snapCancellations.exists()) setCancellations(snapCancellations.data());
+
                 setLoading(false);
             }
         });
+
         return () => unsubscribe();
     }, []);
 
+
     const getMonthCount = () => {
         if (!user?.startDate) return 0;
-      
+
         const start = new Date(user.startDate);
         const today = new Date();
-      
+
         start.setHours(0, 0, 0, 0);
         today.setHours(0, 0, 0, 0);
-      
+
         let count = 0;
         let current = new Date(today.getFullYear(), today.getMonth(), 1);
-      
+
         while (current <= today) {
-          const day = current.getDay();
-      
-          const ymd = `${current.getFullYear()}-${String(current.getMonth() + 1).padStart(2, '0')}-${String(current.getDate()).padStart(2, '0')}`;
-            
-          if (current >= start && day !== 0 && day !== 6 && bookings[ymd] !== false) {
-            count++;
-          }
-      
-          current.setDate(current.getDate() + 1);
+            const day = current.getDay();
+
+            const ymd = `${current.getFullYear()}-${String(current.getMonth() + 1).padStart(2, '0')}-${String(current.getDate()).padStart(2, '0')}`;
+
+            if (current >= start && day !== 0 && day !== 6 && bookings[ymd] !== false) {
+                count++;
+            }
+
+            current.setDate(current.getDate() + 1);
         }
-      
+
         return count;
-      };
-      
+    };
+
 
 
     const sendNotification = async (message) => {
@@ -291,7 +308,7 @@ export default function Dashboard() {
                                 <div className="space-y-4 border border-gray-200 rounded-xl p-6 shadow-sm w-full">
                                     <h2 className="text-xl font-medium">Welcome, {user?.name || 'User'}</h2>
                                     <p className="flex items-center gap-2">
-                                        <span className="font-semibold text-teal-600">My Category:</span> {user?.category}
+                                        <span className="font-semibold text-teal-600">My Category:</span> {capitalizeWords(user?.category)}
                                         <button
                                             onClick={() => setCategoryModalOpen(true)}
                                             disabled={!canEditCategory()}
@@ -311,20 +328,7 @@ export default function Dashboard() {
                                             className="cursor-pointer hover:opacity-80"
                                             title="Show payment QR code"
                                         >
-                                            <svg
-                                                xmlns="http://www.w3.org/2000/svg"
-                                                width={20}
-                                                height={20}
-                                                fill='black'
-                                                viewBox="0 0 24 24"
-                                            >
-                                                <rect x="2" y="2" width="6" height="6" />
-                                                <rect x="2" y="10" width="6" height="6" />
-                                                <rect x="10" y="2" width="6" height="6" />
-                                                <rect x="14" y="14" width="2" height="2" />
-                                                <rect x="18" y="14" width="2" height="2" />
-                                                <rect x="14" y="18" width="2" height="2" />
-                                            </svg>
+                                           <Image width={15} height={15} unoptimized src="https://static-00.iconduck.com/assets.00/qrcode-scan-icon-2048x2048-666d2r1w.png" alt="QRCode" />
                                         </span>
                                     </p>
 
@@ -335,17 +339,29 @@ export default function Dashboard() {
                                         const todayDateStr = dayjs().format('YYYY-MM-DD');
                                         const tomorrowDateStr = dayjs().add(1, 'day').format('YYYY-MM-DD');
                                         const showCancelButtonFor = isBefore730 ? todayDateStr : tomorrowDateStr;
-                                        const isTodayCanceled = bookings[todayDateStr] === false;
-                                        const isFutureDateCanceled = bookings[showCancelButtonFor] === false;
+
+                                        const isTodayUserCanceled = bookings[todayDateStr] === false;
+                                        const isTodayAdminCanceled = cancellations[todayDateStr] === false;
+
+                                        const isFutureUserCanceled = bookings[showCancelButtonFor] === false;
+                                        const isFutureAdminCanceled = cancellations[showCancelButtonFor] === false;
+
+                                        // Determine message for today cancellation
+                                        let todayCancelMessage = null;
+                                        if (isTodayAdminCanceled) {
+                                            todayCancelMessage = "⚠️  Food service is unavailable today.";
+                                        } else if (isTodayUserCanceled) {
+                                            todayCancelMessage = "You have canceled today’s food.";
+                                        }
 
                                         return (
                                             <>
-                                                {isTodayCanceled && (
+                                                {todayCancelMessage && (
                                                     <p className="text-red-500 text-sm font-medium mb-2">
-                                                        Oh' today’s food is canceled
+                                                        {todayCancelMessage}
                                                     </p>
                                                 )}
-                                                {!isFutureDateCanceled && (
+                                                {!isFutureUserCanceled && !isFutureAdminCanceled && (
                                                     <button
                                                         onClick={() => handleCancel(showCancelButtonFor)}
                                                         className="w-full bg-red-500 text-white py-2 rounded hover:bg-red-600 transition cursor-pointer"
@@ -358,41 +374,53 @@ export default function Dashboard() {
                                     })()}
 
                                     <div className="flex justify-between text-sm pt-4 border-t border-gray-100 text-teal-700 font-bold">
-                                        <button className='cursor-pointer hover:text-teal-500' onClick={() => setShowModal(true)}>📅 Schedule Cancelation</button>
+                                        <button className='cursor-pointer hover:text-teal-500' onClick={() => setShowModal(true)}>📅 Schedule Cancellation</button>
                                     </div>
                                 </div>
 
                                 {/* Upcoming Cancellations */}
+                                {/* Upcoming Cancellations */}
                                 <div className="mt-5 w-full">
                                     <div className="border border-red-200 rounded-xl p-6 shadow-sm bg-red-50">
-                                        <h3 className="text-lg font-semibold text-red-600 mb-3">Upcoming Cancellations</h3>
+                                        <h3 className="text-lg font-semibold text-red-600 mb-3">Upcoming Unavailability's</h3>
                                         <div className="space-y-3">
                                             {Object.entries(bookings)
                                                 .filter(([date, booked]) => booked === false && new Date(date + 'T07:00:00') > new Date())
                                                 .sort(([a], [b]) => a.localeCompare(b))
-                                                .map(([date]) => (
-                                                    <div
-                                                        key={date}
-                                                        className="flex justify-between items-center bg-white border border-red-300 rounded-md p-3 shadow-sm"
-                                                    >
-                                                        <span className="text-red-700 font-medium">{date}</span>
-                                                        <button
-                                                            onClick={() => handleUndoCancel(date)}
-                                                            disabled={!!undoing[date]}
-                                                            className={`text-sm px-3 py-1 rounded flex items-center justify-center transition
-                                                    ${undoing[date]
-                                                                    ? 'bg-teal-400 cursor-not-allowed text-white'
-                                                                    : 'bg-teal-600 hover:bg-teal-700 text-white'}
-                                                `}
+                                                .map(([date]) => {
+                                                    const isAdminCanceled = cancellations?.[date] === false;
+
+                                                    return (
+                                                        <div
+                                                            key={date}
+                                                            className="flex justify-between items-center bg-white border border-red-300 rounded-md p-3 shadow-sm"
                                                         >
-                                                            {undoing[date] ? (
-                                                                <div className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                                                            <span className="text-red-700 font-medium">{date}</span>
+
+                                                            {isAdminCanceled ? (
+                                                                <span className="text-sm text-red-500 font-semibold">Cancelled By Admin</span>
                                                             ) : (
-                                                                'Undo Cancel'
+                                                                <button
+                                                                    onClick={() => handleUndoCancel(date)}
+                                                                    disabled={!!undoing[date]}
+                                                                    className={`text-sm px-3 py-1 rounded flex items-center justify-center transition cursor-pointer
+                    ${undoing[date]
+                                                                            ? 'bg-teal-400 cursor-not-allowed text-white'
+                                                                            : 'bg-teal-600 hover:bg-teal-700 text-white'}
+                  `}
+                                                                >
+                                                                    {undoing[date] ? (
+                                                                        <div className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                                                                    ) : (
+                                                                        'Undo Cancel'
+                                                                    )}
+                                                                </button>
                                                             )}
-                                                        </button>
-                                                    </div>
-                                                ))}
+                                                        </div>
+                                                    );
+                                                })}
+
+                                            {/* No cancellations */}
                                             {Object.entries(bookings).filter(([date, booked]) =>
                                                 booked === false && new Date(date + 'T07:00:00') > new Date()
                                             ).length === 0 && (
@@ -401,6 +429,7 @@ export default function Dashboard() {
                                         </div>
                                     </div>
                                 </div>
+
                             </div>
                             <MonthCalendar bookings={bookings} />
                         </div>
