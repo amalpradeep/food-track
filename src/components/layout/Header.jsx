@@ -13,7 +13,7 @@ const Header = ({ isAuth }) => {
     };
 
     return (
-        <div className="bg-teal-600 sticky top-0 text-white py-3 px-6 flex justify-between items-center shadow">
+        <div className="bg-teal-600 z-10 sticky top-0 text-white py-3 px-6 flex justify-between items-center shadow">
             <div>
                 <h1 className="text-lg font-semibold font-mono">🍽️ Foodtrack</h1>
             </div>

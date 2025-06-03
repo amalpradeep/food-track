@@ -128,7 +128,7 @@ function MonthCalendar({ bookings }) {
 
 const canEditCategory = () => {
     const now = dayjs();
-    const threePM = now.hour(14).minute(30).second(0);
+    const threePM = now.hour(14).minute(0).second(0);
     const sevenThirtyAMNextDay = threePM.add(1, 'day').hour(7).minute(30).second(0);
 
     return now.isAfter(threePM) && now.isBefore(sevenThirtyAMNextDay);
@@ -365,6 +365,7 @@ export default function Dashboard() {
                                     <p className="flex items-center gap-2">
                                         <span className="font-semibold text-teal-600">My Category:</span> {capitalizeWords(user?.category)}
                                         <button
+                                            title={!canEditCategory()?'You can update your category after 2:00 PM':' Edit Category'}
                                             onClick={() => setCategoryModalOpen(true)}
                                             disabled={!canEditCategory()}
                                             className={`p-1 rounded transition ${canEditCategory() ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'}`}
