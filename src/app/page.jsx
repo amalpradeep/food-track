@@ -18,6 +18,37 @@ const capitalizeWords = (str) => {
     return str.replace(/\b\w/g, (char) => char.toUpperCase());
 };
 
+const getAvailableDays = (cancellations) => {
+    const today = new Date();
+    const year = today.getFullYear();
+    const month = today.getMonth(); // 0-indexed
+
+    // Step 1: Count total weekdays (Mon–Fri) in the current month
+    const getTotalWeekdaysInMonth = (year, month) => {
+        const date = new Date(year, month, 1);
+        let count = 0;
+
+        while (date.getMonth() === month) {
+            const day = date.getDay();
+            if (day !== 0 && day !== 6) count++; // Skip Sun (0) and Sat (6)
+            date.setDate(date.getDate() + 1);
+        }
+
+        return count;
+    };
+
+    const totalWeekdays = getTotalWeekdaysInMonth(year, month);
+
+    // Step 2: Count all cancellations in the current month
+    const canceledCount = Object.keys(cancellations).filter(dateStr => {
+        const date = new Date(dateStr);
+        return date.getFullYear() === year && date.getMonth() === month;
+    }).length;
+
+    const availableDays = totalWeekdays - canceledCount;
+    return availableDays;
+};
+
 
 function MonthCalendar({ bookings }) {
     const today = dayjs();
@@ -282,6 +313,28 @@ export default function Dashboard() {
 
     const upiLink = `upi://pay?pa=amalpradeep12-2@okicici&pn=Amal%20Pradeep&am=${amountToPay}&aid=uGICAgICgjf-IHQ`;
 
+
+    const getLeadershipTier = (monthCount, availableDays) => {
+        if (monthCount >= availableDays - 1) {
+            return {
+                text: 'gold', shadow: 'shadow-amber-400', message: 'Great job! You booked meals almost every day this month.'
+            };
+        } else if (monthCount >= availableDays - 2) {
+            return {
+                text: 'silver', shadow: 'shadow-gray-400', message: 'Well done! You booked meals consistently this month.'
+            };
+        } else if (monthCount >= availableDays - 3) {
+            return {
+                text: 'bronze', shadow: 'shadow-amber-700', message: 'Good start! Try booking a few more meals next month.'
+            };
+        } else {
+            return null; // no badge
+        }
+    };
+
+    const tier = getLeadershipTier(getMonthCount(), getAvailableDays(cancellations));
+
+
     return (
         <div className="min-h-screen bg-white text-gray-800">
             <Header isAuth />
@@ -300,8 +353,15 @@ export default function Dashboard() {
                         <div className='xl:flex w-full gap-5 justify-center'>
                             <div className='max-w-sm mx-auto w-full'>
                                 <MenuSection menu={menu} />
-                                <div className="space-y-4 border border-gray-200 rounded-xl p-6 shadow-sm w-full">
-                                    <h2 className="text-xl font-medium">Welcome, {user?.name || 'User'}</h2>
+                                <div className={`space-y-4 border border-gray-200 relative rounded-xl p-6 shadow-sm ${tier?.shadow} w-full`}>
+                                    <div className='flex justify-between'>
+                                        <h2 className="text-xl font-medium">Welcome, {user?.name || 'User'}</h2>
+                                        {tier && (
+                                            <span className='bg-amber-200/30 rounded-full p-2 absolute right-4' title={tier?.message}>
+                                                <Image src={`/${tier?.text}.gif`} height={32} width={32} alt={tier?.text} />
+                                            </span>
+                                        )}
+                                    </div>
                                     <p className="flex items-center gap-2">
                                         <span className="font-semibold text-teal-600">My Category:</span> {capitalizeWords(user?.category)}
                                         <button
