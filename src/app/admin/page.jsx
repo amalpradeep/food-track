@@ -140,8 +140,13 @@ export default function AdminDashboard() {
       setMissingDates(
         [...missingSet]
           .filter((d) => {
-            const day = getDay(parseISO(d));
-            return day !== 0 && day !== 6;
+        const day = getDay(parseISO(d));
+        return day !== 0 && day !== 6;
+          })
+          .map((d) => {
+        const nextDay = new Date(parseISO(d));
+        nextDay.setDate(nextDay.getDate() + 1);
+        return format(nextDay, 'yyyy-MM-dd');
           })
           .sort()
       );
