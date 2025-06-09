@@ -143,13 +143,20 @@ export default function AdminDashboard() {
         const day = getDay(parseISO(d));
         return day !== 0 && day !== 6;
           })
-          .map((d) => {
-        const nextDay = new Date(parseISO(d));
-        nextDay.setDate(nextDay.getDate() + 1);
-        return format(nextDay, 'yyyy-MM-dd');
-          })
+          .map((d) => format(parseISO(d), 'yyyy-MM-dd'))
           .sort()
       );
+
+      // Add tomorrow's date to the list if it's a weekday
+      const tomorrow = new Date();
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      const tomorrowDay = getDay(tomorrow);
+      if (tomorrowDay !== 0 && tomorrowDay !== 6) {
+        setMissingDates((prev) => [
+          ...prev,
+          format(tomorrow, 'yyyy-MM-dd'),
+        ]);
+      }
       setLoading(false);
     }
 
