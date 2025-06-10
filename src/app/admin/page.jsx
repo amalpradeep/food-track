@@ -140,8 +140,8 @@ export default function AdminDashboard() {
       setMissingDates(
         [...missingSet]
           .filter((d) => {
-        const day = getDay(parseISO(d));
-        return day !== 0 && day !== 6;
+            const day = getDay(parseISO(d));
+            return day !== 0 && day !== 6;
           })
           .map((d) => format(parseISO(d), 'yyyy-MM-dd'))
           .sort()
@@ -165,11 +165,11 @@ export default function AdminDashboard() {
 
   const handleNotDelivered = async (date) => {
     setButtonLoading(date);
-  
+
     const updates = users.map(async (user) => {
       await setDoc(doc(db, 'bookings', user.uid), { [date]: false }, { merge: true });
     });
-  
+
     const cancellationRef = doc(db, 'cancellations', 'global');
     await Promise.all([
       ...updates,
@@ -179,7 +179,7 @@ export default function AdminDashboard() {
     setButtonLoading(null);
     setMonth((prev) => new Date(prev)); // refresh data
   };
-  
+
 
   const toggleLock = async (uid, currentStatus) => {
     setButtonLoading(uid);
@@ -238,6 +238,43 @@ export default function AdminDashboard() {
       </div>
     );
   }
+
+  const exportUsersToCSV = () => {
+    const headers = [
+      "User",
+      "Count",
+      "Category",
+      "Amount (₹)",
+      "Locked",
+      "Start Date",
+    ];
+
+    const rows = users.map((u) => [
+      u.name,
+      u.count,
+      u.category,
+      `₹${u.amount}`,
+      u.locked ? "Locked" : "Unlocked",
+      u.startDate || "",
+    ]);
+
+    const csvContent = [headers, ...rows]
+      .map((row) => row.map((cell) => `"${cell}"`).join(","))
+      .join("\n");
+
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const now = new Date();
+    const fileName = `users_${now.toISOString().replace(/[:.]/g, "-")}.csv`;  
+
+    const a = document.createElement("a");
+    a.href = url;
+    a.setAttribute("download", fileName);
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  };
+
 
   return (
     <div className="mx-auto p-6 bg-white text-black min-h-screen">
@@ -317,7 +354,7 @@ export default function AdminDashboard() {
           })}
         </div>
       </div>
-
+      <button className='bg-teal-400 flex justify-self-end rounded mb-2 p-1.5 hover:shadow-lg hover:bg-teal-400/90 cursor-pointer text-xs text-gray-800' onClick={exportUsersToCSV}>Download CSV</button>
       <div className="overflow-x-auto">
         <table className="w-full border-collapse mb-8">
           <thead>
