@@ -384,7 +384,7 @@ export default function Dashboard() {
                                             className="cursor-pointer hover:opacity-80"
                                             title="Show payment QR code"
                                         >
-                                            <Image width={15} height={15} unoptimized src="/unnamed.jpg" alt="QRCode" />
+                                            <Image width={20} height={20} unoptimized src="/unnamed.jpg" alt="QRCode" />
                                         </span>
                                     </p>
 
