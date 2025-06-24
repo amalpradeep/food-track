@@ -371,7 +371,7 @@ export default function Dashboard() {
                                             className={`p-1 rounded transition ${canEditCategory() ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'}`}
                                             aria-label="Edit category"
                                         >
-                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-teal-600  -ml-3" fill="none" viewBox="0 0 30 30" stroke="currentColor" strokeWidth={2}>
+                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-teal-400  -ml-3" fill="none" viewBox="0 0 30 30" stroke="currentColor" strokeWidth={2}>
                                                 <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536M9 13l6-6 3 3-6 6H9v-3z" />
                                             </svg>
                                         </button>
@@ -384,7 +384,7 @@ export default function Dashboard() {
                                             className="cursor-pointer hover:opacity-80"
                                             title="Show payment QR code"
                                         >
-                                            <Image width={15} height={15} unoptimized src="https://static-00.iconduck.com/assets.00/qrcode-scan-icon-2048x2048-666d2r1w.png" alt="QRCode" />
+                                            <Image width={15} height={15} unoptimized src="/unnamed.jpg" alt="QRCode" />
                                         </span>
                                     </p>
 
@@ -420,7 +420,7 @@ export default function Dashboard() {
                                                 {!isFutureUserCanceled && !isFutureAdminCanceled && (
                                                     <button
                                                         onClick={() => handleCancel(showCancelButtonFor)}
-                                                        className="w-full bg-red-500 text-white py-2 rounded hover:bg-red-600 transition cursor-pointer"
+                                                        className="w-full bg-red-500 text-white py-2 font-thin text-sm rounded hover:bg-red-600 transition cursor-pointer"
                                                     >
                                                         Cancel {showCancelButtonFor === todayDateStr ? "Today's" : "Tomorrow's"} Food
                                                     </button>
@@ -429,8 +429,8 @@ export default function Dashboard() {
                                         );
                                     })()}
 
-                                    <div className="flex justify-between text-sm pt-4 border-t border-gray-100 text-teal-700 font-bold">
-                                        <button className='cursor-pointer hover:text-teal-500' onClick={() => setShowModal(true)}>📅 Schedule Cancellation</button>
+                                    <div className="flex justify-between text-sm pt-4 border-t border-gray-100 text-red-700 font-bold">
+                                        <button className='cursor-pointer hover:text-red-500' onClick={() => setShowModal(true)}>📅 Schedule Cancellation</button>
                                     </div>
                                 </div>
 
