@@ -332,6 +332,20 @@ export default function Dashboard() {
         }
     };
 
+    const isEndOfMonthWeekday = () => {
+        const today = new Date();
+        const dayOfWeek = today.getDay(); // 0 = Sunday, 6 = Saturday
+
+        // Exclude Saturday (6) and Sunday (0)
+        if (dayOfWeek === 0 || dayOfWeek === 6) return false;
+
+        const currentDate = today.getDate();
+        const lastDateOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
+
+        // Show if it's within last 3 days of the month
+        return currentDate >= lastDateOfMonth - 2;
+    };
+
     const tier = getLeadershipTier(getMonthCount(), getAvailableDays(cancellations));
 
 
@@ -353,10 +367,10 @@ export default function Dashboard() {
                         <div className='xl:flex w-full gap-5 justify-center'>
                             <div className='max-w-sm mx-auto w-full'>
                                 <MenuSection menu={menu} />
-                                <div className={`space-y-4 border border-gray-200 relative rounded-xl p-6 shadow-sm ${tier?.shadow} w-full`}>
+                                <div className={`space-y-4 border border-gray-200 relative rounded-xl p-6 shadow-sm ${isEndOfMonthWeekday() ? tier?.shadow : ''} w-full`}>
                                     <div className='flex justify-between'>
                                         <h2 className="text-xl font-medium">Welcome, {user?.name || 'User'}</h2>
-                                        {tier && (
+                                        {tier && isEndOfMonthWeekday() && (
                                             <span className='bg-amber-200/30 rounded-full p-2 absolute right-4' title={tier?.message}>
                                                 <Image src={`/${tier?.text}.gif`} height={32} width={32} alt={tier?.text} />
                                             </span>
@@ -365,7 +379,7 @@ export default function Dashboard() {
                                     <p className="flex items-center gap-2">
                                         <span className="font-semibold text-teal-600">My Category:</span> {capitalizeWords(user?.category)}
                                         <button
-                                            title={!canEditCategory()?'You can update your category after 2:00 PM':' Edit Category'}
+                                            title={!canEditCategory() ? 'You can update your category after 2:00 PM' : ' Edit Category'}
                                             onClick={() => setCategoryModalOpen(true)}
                                             disabled={!canEditCategory()}
                                             className={`p-1 rounded transition ${canEditCategory() ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'}`}
@@ -388,6 +402,13 @@ export default function Dashboard() {
                                         </span>
                                     </p>
 
+                                    {isEndOfMonthWeekday() && (
+                                        <div className="mt-4 p-4 bg-yellow-100 border border-yellow-300 rounded">
+                                            <p className="text-yellow-800 font-semibold text-sm">
+                                                ⚠️ Today is the end of the month. Ensure all payments are settled.
+                                            </p>
+                                        </div>
+                                    )}
 
                                     {(() => {
                                         const now = dayjs();
