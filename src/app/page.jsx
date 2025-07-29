@@ -402,14 +402,6 @@ export default function Dashboard() {
                                         </span>
                                     </p>
 
-                                    {isEndOfMonthWeekday() && (
-                                        <div className="mt-4 p-4 bg-yellow-100 border border-yellow-300 rounded">
-                                            <p className="text-yellow-800 font-semibold text-sm">
-                                                ⚠️ Today is the end of the month. Ensure all payments are settled.
-                                            </p>
-                                        </div>
-                                    )}
-
                                     {(() => {
                                         const now = dayjs();
                                         const isBefore730 = now.isBefore(now.hour(7).minute(30));
