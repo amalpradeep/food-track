@@ -52,8 +52,6 @@ const FeedbackForm = ({ user, onClose, onSubmit }) => {
         adminResponse: null
       };
 
-      console.log('feedbackData: ', feedbackData);
-
       await setDoc(doc(db, 'feedback', feedbackId), feedbackData);
 
       // Send notification to admin
