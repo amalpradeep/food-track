@@ -21,6 +21,7 @@ import {
   getDay,
   parseISO,
 } from 'date-fns';
+import AdminFeedback from '@/components/Feedback/AdminFeedback';
 
 function getWorkingDays(startDate, month) {
   const start = startOfMonth(month);
@@ -51,6 +52,7 @@ export default function AdminDashboard() {
   const [showNotifyModal, setShowNotifyModal] = useState(false);
   const [notifyMessage, setNotifyMessage] = useState('');
   const [sendingNotify, setSendingNotify] = useState(false);
+  const [activeTab, setActiveTab] = useState('dashboard'); // dashboard, feedback
 
 
   // NEW: selectedDate state with default today
@@ -278,8 +280,37 @@ export default function AdminDashboard() {
 
   return (
     <div className="mx-auto p-6 bg-white text-black min-h-screen">
-      <h2 className="text-2xl font-semibold text-teal-700">Admin Dashboard</h2>
-      <div className="flex items-center mb-6">
+      <div className="flex justify-between items-center mb-6">
+        <h2 className="text-2xl font-semibold text-teal-700">Admin Dashboard</h2>
+        
+        {/* Tab Navigation */}
+        <div className="flex gap-2">
+          <button
+            onClick={() => setActiveTab('dashboard')}
+            className={`px-4 py-2 rounded text-sm font-medium transition-colors ${
+              activeTab === 'dashboard'
+                ? 'bg-teal-600 text-white'
+                : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+            }`}
+          >
+            Dashboard
+          </button>
+          <button
+            onClick={() => setActiveTab('feedback')}
+            className={`px-4 py-2 rounded text-sm font-medium transition-colors ${
+              activeTab === 'feedback'
+                ? 'bg-teal-600 text-white'
+                : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+            }`}
+          >
+            Feedbacks
+          </button>
+        </div>
+      </div>
+
+      {activeTab === 'dashboard' ? (
+        <div>
+          <div className="flex items-center mb-6">
         <div className="flex items-center gap-2">
           <button onClick={() => setMonth(subMonths(month, 1))} className="text-teal-600 hover:text-teal-800 text-xl">◀</button>
           <span className="font-medium">{format(month, 'MMMM yyyy')}</span>
@@ -428,6 +459,11 @@ export default function AdminDashboard() {
           </ul>
         )}
       </div>
+        </div>
+      ) : (
+        <AdminFeedback />
+      )}
+
       {showMealModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="bg-white p-6 rounded-xl shadow-lg w-full max-w-md">

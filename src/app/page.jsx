@@ -10,9 +10,10 @@ import 'react-date-range/dist/styles.css';
 import 'react-date-range/dist/theme/default.css';
 import dayjs from 'dayjs';
 import Header from '@/components/layout/Header';
-import { QRCodeCanvas, Qr } from 'qrcode.react';
+import { QRCodeCanvas } from 'qrcode.react';
 import Image from 'next/image';
 import MenuSection from '@/components/Menu';
+import FeedbackSection from '@/components/Feedback';
 
 const capitalizeWords = (str) => {
     return str.replace(/\b\w/g, (char) => char.toUpperCase());
@@ -498,6 +499,8 @@ export default function Dashboard() {
                                         </div>
                                     </div>
                                 </div>
+
+                                <FeedbackSection user={user} userId={userId} />
 
                             </div>
                             <MonthCalendar bookings={bookings} />
