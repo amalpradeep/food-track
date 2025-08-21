@@ -8,6 +8,7 @@ import {
   getDocs,
   setDoc,
   updateDoc,
+  deleteDoc,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import {
@@ -53,6 +54,10 @@ export default function AdminDashboard() {
   const [notifyMessage, setNotifyMessage] = useState('');
   const [sendingNotify, setSendingNotify] = useState(false);
   const [activeTab, setActiveTab] = useState('dashboard'); // dashboard, feedback
+  const [blacklistedUsers, setBlacklistedUsers] = useState(new Set());
+  const [blacklistingUserId, setBlacklistingUserId] = useState(null);
+  const [showBlacklistModal, setShowBlacklistModal] = useState(false);
+  const [userToBlacklist, setUserToBlacklist] = useState(null);
 
 
   // NEW: selectedDate state with default today
@@ -162,7 +167,18 @@ export default function AdminDashboard() {
       setLoading(false);
     }
 
+    async function fetchBlacklistedUsers() {
+      try {
+        const blacklistSnapshot = await getDocs(collection(db, 'blacklist'));
+        const blacklisted = new Set(blacklistSnapshot.docs.map(doc => doc.id));
+        setBlacklistedUsers(blacklisted);
+      } catch (error) {
+        console.error('Error fetching blacklisted users:', error);
+      }
+    }
+
     fetchData();
+    fetchBlacklistedUsers();
   }, [month, activeDate]); // re-fetch if month or selected date changes
 
   const handleNotDelivered = async (date) => {
@@ -199,6 +215,52 @@ export default function AdminDashboard() {
     setUsers((prev) =>
       prev.map((u) => (u.uid === uid ? { ...u, startDate: value } : u))
     );
+  };
+
+  const handleBlacklistClick = (userId, userName) => {
+    setUserToBlacklist({ userId, userName });
+    setShowBlacklistModal(true);
+  };
+
+  const handleConfirmBlacklist = async () => {
+    if (!userToBlacklist) return;
+    
+    const { userId, userName } = userToBlacklist;
+    const isCurrentlyBlacklisted = blacklistedUsers.has(userId);
+    
+    setBlacklistingUserId(userId);
+    try {
+      if (isCurrentlyBlacklisted) {
+        // Remove from blacklist
+        await deleteDoc(doc(db, 'blacklist', userId));
+        setBlacklistedUsers(prev => {
+          const newSet = new Set(prev);
+          newSet.delete(userId);
+          return newSet;
+        });
+      } else {
+        // Add to blacklist
+        await setDoc(doc(db, 'blacklist', userId), {
+          userId,
+          userName,
+          blacklistedAt: new Date().toISOString(),
+          reason: 'Spamming'
+        });
+        setBlacklistedUsers(prev => new Set([...prev, userId]));
+      }
+    } catch (error) {
+      console.error('Error updating blacklist:', error);
+      alert('Failed to update blacklist');
+    } finally {
+      setBlacklistingUserId(null);
+      setShowBlacklistModal(false);
+      setUserToBlacklist(null);
+    }
+  };
+
+  const handleCancelBlacklist = () => {
+    setShowBlacklistModal(false);
+    setUserToBlacklist(null);
   };
 
   const handleSaveMeal = async () => {
@@ -396,12 +458,22 @@ export default function AdminDashboard() {
               <th className="border px-4 py-2">Amount (₹)</th>
               <th className="border px-4 py-2">Locked</th>
               <th className="border px-4 py-2">Start Date</th>
+              <th className="border px-4 py-2">Blacklist</th>
             </tr>
           </thead>
           <tbody>
             {users.map((u) => (
               <tr key={u.uid} className="border-t">
-                <td className="border px-4 py-2">{u.name}</td>
+                <td className="border px-4 py-2">
+                  <div className="flex items-center gap-2">
+                    {u.name}
+                    {blacklistedUsers.has(u.uid) && (
+                      <span className="px-2 py-1 bg-red-100 text-red-800 text-xs rounded-full">
+                        🚫 Blacklisted
+                      </span>
+                    )}
+                  </div>
+                </td>
                 <td className="border px-4 py-2">{u.count}</td>
                 <td className="border px-4 py-2">{u.category}</td>
                 <td className="border px-4 py-2">₹{u.amount}</td>
@@ -421,6 +493,20 @@ export default function AdminDashboard() {
                     className="border px-2 py-1 rounded"
                   />
                 </td>
+                <td className="border px-4 py-2">
+                  <button
+                    onClick={() => handleBlacklistClick(u.uid, u.name)}
+                    disabled={blacklistingUserId === u.uid}
+                    className={`px-2 py-1 text-sm cursor-pointer rounded ${
+                      blacklistedUsers.has(u.uid)
+                        ? 'bg-green-600 text-white hover:bg-green-700'
+                        : 'bg-orange-600 text-white hover:bg-orange-700'
+                    } disabled:opacity-50`}
+                  >
+                    {blacklistingUserId === u.uid ? 'Processing...' : 
+                     blacklistedUsers.has(u.uid) ? 'Unblacklist' : 'Blacklist'}
+                  </button>
+                </td>
               </tr>
             ))}
           </tbody>
@@ -430,7 +516,7 @@ export default function AdminDashboard() {
               <td className="border px-4 py-2">{totalCount}</td>
               <td className="border px-4 py-2"></td>
               <td className="border px-4 py-2">₹{totalAmount}</td>
-              <td colSpan={2}></td>
+              <td colSpan={3}></td>
             </tr>
           </tfoot>
         </table>
@@ -543,6 +629,66 @@ export default function AdminDashboard() {
               >
                 {sendingNotify ? 'Sending...' : 'Send'}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Blacklist Confirmation Modal */}
+      {showBlacklistModal && userToBlacklist && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white p-6 rounded-xl shadow-lg w-full max-w-md mx-4">
+            <div className="text-center">
+              <div className="text-4xl mb-4">
+                {blacklistedUsers.has(userToBlacklist.userId) ? '✅' : '⚠️'}
+              </div>
+              <h3 className="text-lg font-semibold text-gray-800 mb-2">
+                {blacklistedUsers.has(userToBlacklist.userId) ? 'Remove from Blacklist' : 'Add to Blacklist'}
+              </h3>
+              <p className="text-gray-600 mb-4">
+                Are you sure you want to {blacklistedUsers.has(userToBlacklist.userId) ? 'remove' : 'add'} <strong>{userToBlacklist.userName}</strong> {blacklistedUsers.has(userToBlacklist.userId) ? 'from' : 'to'} the blacklist?
+              </p>
+              
+              {!blacklistedUsers.has(userToBlacklist.userId) && (
+                <div className="bg-orange-50 border border-orange-200 rounded-lg p-4 mb-4">
+                  <p className="text-orange-700 text-sm">
+                    <strong>Effect:</strong> User will be unable to submit feedback
+                  </p>
+                  <p className="text-orange-600 text-sm mt-2">
+                    <strong>Reason:</strong> Spam prevention
+                  </p>
+                </div>
+              )}
+              
+              {blacklistedUsers.has(userToBlacklist.userId) && (
+                <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-4">
+                  <p className="text-green-700 text-sm">
+                    <strong>Effect:</strong> User will be able to submit feedback again
+                  </p>
+                </div>
+              )}
+              
+              <div className="flex gap-3 justify-center">
+                <button
+                  onClick={handleCancelBlacklist}
+                  disabled={blacklistingUserId === userToBlacklist.userId}
+                  className="px-6 py-2 rounded bg-gray-200 hover:bg-gray-300 text-gray-800 disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleConfirmBlacklist}
+                  disabled={blacklistingUserId === userToBlacklist.userId}
+                  className={`px-6 py-2 rounded text-white disabled:opacity-50 ${
+                    blacklistedUsers.has(userToBlacklist.userId)
+                      ? 'bg-green-600 hover:bg-green-700'
+                      : 'bg-orange-600 hover:bg-orange-700'
+                  }`}
+                >
+                  {blacklistingUserId === userToBlacklist.userId ? 'Processing...' : 
+                   blacklistedUsers.has(userToBlacklist.userId) ? 'Remove from Blacklist' : 'Add to Blacklist'}
+                </button>
+              </div>
             </div>
           </div>
         </div>

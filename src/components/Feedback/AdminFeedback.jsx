@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { collection, query, orderBy, getDocs, doc, updateDoc } from 'firebase/firestore';
+import { collection, query, orderBy, getDocs, doc, updateDoc, deleteDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 
 const AdminFeedback = () => {
@@ -11,9 +11,14 @@ const AdminFeedback = () => {
   const [selectedFeedback, setSelectedFeedback] = useState(null);
   const [adminResponse, setAdminResponse] = useState('');
   const [isResponding, setIsResponding] = useState(false);
+  const [deletingItemId, setDeletingItemId] = useState(null);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [feedbackToDelete, setFeedbackToDelete] = useState(null);
+  const [blacklistedUsers, setBlacklistedUsers] = useState(new Set());
 
   useEffect(() => {
     fetchFeedbacks();
+    fetchBlacklistedUsers();
   }, []);
 
   const fetchFeedbacks = async () => {
@@ -68,6 +73,53 @@ const AdminFeedback = () => {
       alert('Failed to update feedback');
     } finally {
       setIsResponding(false);
+    }
+  };
+
+  const updateFeedbackStatus = async (id, newStatus) => {
+    try {
+      await updateDoc(doc(db, 'feedback', id), { status: newStatus });
+      setFeedbacks(prev => prev.map(f => f.id === id ? { ...f, status: newStatus } : f));
+    } catch (error) {
+      console.error('Error updating feedback status:', error);
+      alert('Failed to update feedback status');
+    }
+  };
+
+  const handleDeleteClick = (feedback) => {
+    setFeedbackToDelete(feedback);
+    setShowDeleteModal(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!feedbackToDelete) return;
+
+    setDeletingItemId(feedbackToDelete.id);
+    try {
+      await deleteDoc(doc(db, 'feedback', feedbackToDelete.id));
+      setFeedbacks(prev => prev.filter(f => f.id !== feedbackToDelete.id));
+      setShowDeleteModal(false);
+      setFeedbackToDelete(null);
+    } catch (error) {
+      console.error('Error deleting feedback:', error);
+      alert('Failed to delete feedback');
+    } finally {
+      setDeletingItemId(null);
+    }
+  };
+
+  const handleCancelDelete = () => {
+    setShowDeleteModal(false);
+    setFeedbackToDelete(null);
+  };
+
+  const fetchBlacklistedUsers = async () => {
+    try {
+      const blacklistSnapshot = await getDocs(collection(db, 'blacklist'));
+      const blacklisted = new Set(blacklistSnapshot.docs.map(doc => doc.id));
+      setBlacklistedUsers(blacklisted);
+    } catch (error) {
+      console.error('Error fetching blacklisted users:', error);
     }
   };
 
@@ -161,6 +213,11 @@ const AdminFeedback = () => {
                 <div className="flex items-center gap-4">
                   <div className="font-medium text-gray-900">{feedback.userName}</div>
                   <div className="text-sm text-gray-600">({feedback.userCategory})</div>
+                  {blacklistedUsers.has(feedback.userId) && (
+                    <span className="px-2 py-1 bg-red-100 text-red-800 text-xs rounded-full">
+                      🚫 Blacklisted
+                    </span>
+                  )}
                 </div>
                 <div className="text-right">
                   <div className="text-xs text-gray-500">{formatDate(feedback.timestamp)}</div>
@@ -184,30 +241,41 @@ const AdminFeedback = () => {
                 </div>
               )}
 
-              <div className="flex gap-2">
-                {feedback.status === 'new' && (
-                  <button
-                    onClick={() => updateFeedbackStatus(feedback.id, 'reviewed')}
-                    className="px-3 py-1 bg-yellow-500 text-white rounded text-sm hover:bg-yellow-600"
-                  >
-                    Mark as Reviewed
-                  </button>
-                )}
+              <div className="flex justify-between items-center gap-2">
+                <div className="flex gap-2 max-sm:flex-wrap">
+                  {feedback.status === 'new' && (
+                    <button
+                      onClick={() => updateFeedbackStatus(feedback.id, 'reviewed')}
+                      className="px-3 py-1 bg-yellow-500 text-white rounded text-sm hover:bg-yellow-600 max-sm:text-xs"
+                    >
+                      Mark as Reviewed
+                    </button>
+                  )}
 
-                {feedback.status !== 'resolved' && (
-                  <button
-                    onClick={() => setSelectedFeedback(feedback)}
-                    className="px-3 py-1 bg-teal-600 text-white rounded text-sm hover:bg-teal-700"
-                  >
-                    Respond & Resolve
-                  </button>
-                )}
+                  {feedback.status !== 'resolved' && (
+                    <button
+                      onClick={() => setSelectedFeedback(feedback)}
+                      className="px-3 py-1 bg-teal-600 text-white rounded text-sm hover:bg-teal-700 max-sm:text-xs"
+                    >
+                      Respond & Resolve
+                    </button>
+                  )}
 
-                {feedback.status === 'resolved' && (
-                  <span className="px-3 py-1 bg-green-100 text-green-800 rounded text-sm">
-                    ✓ Resolved
-                  </span>
-                )}
+                  {feedback.status === 'resolved' && (
+                    <span className="px-3 py-1 bg-green-100 text-green-800 rounded text-sm">
+                      ✓ Resolved
+                    </span>
+                  )}
+
+                </div>
+
+                <button
+                  onClick={() => handleDeleteClick(feedback)}
+                  disabled={deletingItemId === feedback.id}
+                  className="px-3 py-1 bg-red-600 text-white rounded text-sm hover:bg-red-700 disabled:opacity-50 max-sm:text-xs"
+                >
+                  {deletingItemId === feedback.id ? 'Deleting...' : 'Delete'}
+                </button>
               </div>
             </div>
           ))
@@ -254,6 +322,48 @@ const AdminFeedback = () => {
               >
                 {isResponding ? 'Responding...' : 'Send Response & Resolve'}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteModal && feedbackToDelete && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white p-6 rounded-xl shadow-lg w-full max-w-md mx-4">
+            <div className="text-center">
+              <div className="text-4xl mb-4">⚠️</div>
+              <h3 className="text-lg font-semibold text-gray-800 mb-2">Delete Feedback</h3>
+              <p className="text-gray-600 mb-4">
+                Are you sure you want to delete feedback from <strong>{feedbackToDelete.userName}</strong>?
+              </p>
+              <div className="bg-gray-50 p-3 rounded mb-4 text-left">
+                <p className="text-sm text-gray-700 font-medium mb-1">
+                  {getCategoryLabel(feedbackToDelete.category)}
+                </p>
+                <p className="text-sm text-gray-600 line-clamp-3">
+                  {feedbackToDelete.comment}
+                </p>
+              </div>
+              <p className="text-red-600 text-sm mb-6">
+                This action cannot be undone.
+              </p>
+              <div className="flex gap-3 justify-center">
+                <button
+                  onClick={handleCancelDelete}
+                  disabled={deletingItemId === feedbackToDelete.id}
+                  className="px-6 py-2 rounded bg-gray-200 hover:bg-gray-300 text-gray-800 disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleConfirmDelete}
+                  disabled={deletingItemId === feedbackToDelete.id}
+                  className="px-6 py-2 rounded bg-red-600 text-white hover:bg-red-700 disabled:opacity-50"
+                >
+                  {deletingItemId === feedbackToDelete.id ? 'Deleting...' : 'Delete'}
+                </button>
+              </div>
             </div>
           </div>
         </div>
