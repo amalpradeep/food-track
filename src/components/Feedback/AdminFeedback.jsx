@@ -14,9 +14,11 @@ const AdminFeedback = () => {
   const [deletingItemId, setDeletingItemId] = useState(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [feedbackToDelete, setFeedbackToDelete] = useState(null);
+  const [blacklistedUsers, setBlacklistedUsers] = useState(new Set());
 
   useEffect(() => {
     fetchFeedbacks();
+    fetchBlacklistedUsers();
   }, []);
 
   const fetchFeedbacks = async () => {
@@ -91,7 +93,7 @@ const AdminFeedback = () => {
 
   const handleConfirmDelete = async () => {
     if (!feedbackToDelete) return;
-    
+
     setDeletingItemId(feedbackToDelete.id);
     try {
       await deleteDoc(doc(db, 'feedback', feedbackToDelete.id));
@@ -109,6 +111,16 @@ const AdminFeedback = () => {
   const handleCancelDelete = () => {
     setShowDeleteModal(false);
     setFeedbackToDelete(null);
+  };
+
+  const fetchBlacklistedUsers = async () => {
+    try {
+      const blacklistSnapshot = await getDocs(collection(db, 'blacklist'));
+      const blacklisted = new Set(blacklistSnapshot.docs.map(doc => doc.id));
+      setBlacklistedUsers(blacklisted);
+    } catch (error) {
+      console.error('Error fetching blacklisted users:', error);
+    }
   };
 
   const formatDate = (timestamp) => {
@@ -201,6 +213,11 @@ const AdminFeedback = () => {
                 <div className="flex items-center gap-4">
                   <div className="font-medium text-gray-900">{feedback.userName}</div>
                   <div className="text-sm text-gray-600">({feedback.userCategory})</div>
+                  {blacklistedUsers.has(feedback.userId) && (
+                    <span className="px-2 py-1 bg-red-100 text-red-800 text-xs rounded-full">
+                      🚫 Blacklisted
+                    </span>
+                  )}
                 </div>
                 <div className="text-right">
                   <div className="text-xs text-gray-500">{formatDate(feedback.timestamp)}</div>
@@ -249,13 +266,13 @@ const AdminFeedback = () => {
                       ✓ Resolved
                     </span>
                   )}
+
                 </div>
 
-                {/* Delete Button - Right aligned on larger screens, with other buttons on small screens */}
                 <button
                   onClick={() => handleDeleteClick(feedback)}
                   disabled={deletingItemId === feedback.id}
-                  className="px-3 py-1 bg-red-600 text-white rounded text-sm hover:bg-red-700 disabled:opacity-50 max-sm:text-xs max-sm:order-first max-sm:w-full"
+                  className="px-3 py-1 bg-red-600 text-white rounded text-sm hover:bg-red-700 disabled:opacity-50 max-sm:text-xs"
                 >
                   {deletingItemId === feedback.id ? 'Deleting...' : 'Delete'}
                 </button>
