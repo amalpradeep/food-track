@@ -123,7 +123,7 @@ export default function AdminDashboard() {
           name: name || email,
           category: category,
           count: userMonthCount,
-          amount: userMonthCount * 50,
+          amount: userMonthCount * 60,
           bookings,
           locked,
           startDate,
@@ -135,7 +135,7 @@ export default function AdminDashboard() {
       setUsers(userData);
       setUserCount(filteredUserCount);
       setTotalCount(overallCount);
-      setTotalAmount(overallCount * 50);
+      setTotalAmount(overallCount * 60);
       setDailyStats(stats);
       setMissingDates(
         [...missingSet]
