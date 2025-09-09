@@ -310,7 +310,7 @@ export default function Dashboard() {
             </div>
         );
     }
-    const amountToPay = getMonthCount() * 50;
+    const amountToPay = getMonthCount() * 60;
 
     const upiLink = `upi://pay?pa=amalpradeep12-2@okicici&pn=Amal%20Pradeep&am=${amountToPay}&aid=uGICAgICgjf-IHQ`;
 
