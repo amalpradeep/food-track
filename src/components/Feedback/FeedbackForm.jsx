@@ -1,8 +1,12 @@
 'use client';
 
 import { useState } from 'react';
-import { doc, setDoc } from 'firebase/firestore';
+import { doc, setDoc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+
+import BlacklistModal from '@/components/modals/BlacklistModal';
+import FeedbackErrorModal from '@/components/modals/FeedbackErrorModal';
+import FeedbackSuccessModal from '@/components/modals/FeedbackSuccessModal';
 
 const FeedbackForm = ({ user, onClose, onSubmit }) => {
   const [category, setCategory] = useState('food_quality');
@@ -12,6 +16,7 @@ const FeedbackForm = ({ user, onClose, onSubmit }) => {
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [showErrorModal, setShowErrorModal] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
+  const [showBlacklistModal, setShowBlacklistModal] = useState(false);
 
   const categories = [
     { value: 'food_quality', label: 'Food Quality' },
@@ -23,9 +28,9 @@ const FeedbackForm = ({ user, onClose, onSubmit }) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
+
     const newErrors = {};
-    
+
     if (!comment.trim()) {
       newErrors.comment = 'Please provide feedback';
     }
@@ -37,6 +42,27 @@ const FeedbackForm = ({ user, onClose, onSubmit }) => {
 
     setErrors({});
     setIsSubmitting(true);
+
+    // Check if user is blacklisted
+    try {
+      const blacklistDoc = await getDoc(doc(db, 'blacklist', user.uid));
+      if (blacklistDoc.exists()) {
+        setShowBlacklistModal(true);
+        setIsSubmitting(false);
+        return;
+      }
+    } catch (error) {
+      console.error('Error checking blacklist status:', error);
+    }
+
+    if (comment.length > 500) {
+      newErrors.comment = 'Feedback must be at most 500 characters';
+    }
+
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
+      return;
+    }
 
     try {
       const feedbackId = `${user.uid}_${Date.now()}`;
@@ -58,10 +84,10 @@ const FeedbackForm = ({ user, onClose, onSubmit }) => {
       await fetch('/api/user-notify', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
+        body: JSON.stringify({
           message: `📝 New Feedback from ${user.name}.\n
           Category: ${category.replace('_', ' ').toUpperCase()}.\n
-          Comment: ${comment}` 
+          Comment: ${comment}`
         }),
       });
 
@@ -75,11 +101,10 @@ const FeedbackForm = ({ user, onClose, onSubmit }) => {
     }
   };
 
-
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
       <div className="bg-white p-6 rounded-xl shadow-lg w-full max-w-md mx-4">
-        <div className="flex justify-between items-center mb-4">
+        <div className="flex justify-between items-center mb-2">
           <h3 className="text-lg font-semibold text-gray-800">Share Your Feedback</h3>
           <button
             onClick={onClose}
@@ -90,11 +115,9 @@ const FeedbackForm = ({ user, onClose, onSubmit }) => {
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
-
-          {/* Category */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Feedback Category *
+              Feedback Category <span className="text-red-500">*</span>
             </label>
             <select
               value={category}
@@ -110,10 +133,9 @@ const FeedbackForm = ({ user, onClose, onSubmit }) => {
             </select>
           </div>
 
-          {/* Comment */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Your Feedback *
+              Your Feedback <span className="text-red-500">*</span>
             </label>
             <textarea
               value={comment}
@@ -124,9 +146,7 @@ const FeedbackForm = ({ user, onClose, onSubmit }) => {
                 }
               }}
               rows={4}
-              className={`w-full border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-teal-500 ${
-                errors.comment ? 'border-red-300' : 'border-gray-300'
-              }`}
+              className={`w-full border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-teal-500 ${errors.comment ? 'border-red-300' : 'border-gray-300'}`}
               placeholder="Please share your thoughts, suggestions, or concerns..."
             />
             {errors.comment && (
@@ -137,7 +157,10 @@ const FeedbackForm = ({ user, onClose, onSubmit }) => {
             </p>
           </div>
 
-          {/* Submit Buttons */}
+          <p className="text-xs text-red-400 mb-4">
+            * Feedbacks cannot be edited or deleted once submitted.
+          </p>
+
           <div className="flex justify-end gap-3 pt-4">
             <button
               type="button"
@@ -158,42 +181,30 @@ const FeedbackForm = ({ user, onClose, onSubmit }) => {
         </form>
       </div>
 
-      {/* Success Modal */}
       {showSuccessModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white p-6 rounded-xl shadow-lg w-full max-w-sm mx-4 text-center">
-            <div className="text-3xl mb-4">✅</div>
-            <h3 className="text-lg font-semibold text-gray-800 mb-2">Thank You!</h3>
-            <p className="text-gray-600 mb-4">Your feedback has been submitted successfully.</p>
-            <button
-              onClick={() => {
-                setShowSuccessModal(false);
-                onSubmit?.();
-                onClose();
-              }}
-              className="px-6 py-2 rounded bg-teal-600 text-white hover:bg-teal-700"
-            >
-              Close
-            </button>
-          </div>
-        </div>
+        <FeedbackSuccessModal
+          onClose={() => {
+            setShowSuccessModal(false);
+            onSubmit?.();
+            onClose();
+          }}
+        />
       )}
 
-      {/* Error Modal */}
       {showErrorModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white p-6 rounded-xl shadow-lg w-full max-w-sm mx-4 text-center">
-            <div className="text-3xl mb-4">❌</div>
-            <h3 className="text-lg font-semibold text-gray-800 mb-2">Error</h3>
-            <p className="text-gray-600 mb-4">{errorMessage}</p>
-            <button
-              onClick={() => setShowErrorModal(false)}
-              className="px-6 py-2 rounded bg-red-600 text-white hover:bg-red-700"
-            >
-              Try Again
-            </button>
-          </div>
-        </div>
+        <FeedbackErrorModal
+          onClose={() => setShowErrorModal(false)}
+          errorMessage={errorMessage}
+        />
+      )}
+
+      {showBlacklistModal && (
+        <BlacklistModal
+          onClose={() => {
+            setShowBlacklistModal(false);
+            onClose();
+          }}
+        />
       )}
     </div>
   );
